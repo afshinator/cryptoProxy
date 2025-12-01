@@ -203,6 +203,23 @@
       <div class="endpoint">
         <div class="endpoint-header">
           <span class="method get">GET</span>
+          <span class="path">/api/markets</span>
+        </div>
+        <div class="description">
+          Mirrors CoinGecko's markets endpoint. Returns cryptocurrency market data including prices, market caps, and volume. Supports query parameters for filtering and pagination.
+        </div>
+        <div class="details">
+          <h4>Query Parameters</h4>
+          <code>vs_currency</code> (default: usd), <code>order</code> (default: market_cap_desc), <code>per_page</code> (default: 100), <code>page</code> (default: 1), <code>sparkline</code> (default: false), <code>price_change_percentage</code>, <code>ids</code>, <code>category</code>
+          <h4 style="margin-top: 0.75rem;">Response</h4>
+          <code>[{"id": "bitcoin", "symbol": "btc", "name": "Bitcoin", "current_price": 45000, ...}]</code>
+        </div>
+        <a href="/api/markets?vs_currency=usd&per_page=10" class="test-link" target="_blank">Test Endpoint →</a>
+      </div>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
           <span class="method post">POST</span>
           <span class="path">/api/blob-example</span>
         </div>

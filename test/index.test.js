@@ -37,6 +37,11 @@ describe('Index Page Tests', () => {
     expect(htmlContent).toContain('Test Endpoint →');
   });
 
+  it('should list the markets endpoint', () => {
+    expect(htmlContent).toContain('/api/markets');
+    expect(htmlContent).toContain('CoinGecko');
+  });
+
   it('should list the blob-example endpoint', () => {
     expect(htmlContent).toContain('/api/blob-example');
     expect(htmlContent).toContain('Vercel Blob storage');
@@ -47,11 +52,12 @@ describe('Index Page Tests', () => {
     expect(htmlContent).toContain('method post');
   });
 
-  it('should have test links for both endpoints', () => {
+  it('should have test links for all endpoints', () => {
     const testLinkMatches = htmlContent.match(/href="\/api\/[^"]+"/g);
     expect(testLinkMatches).toBeTruthy();
-    expect(testLinkMatches.length).toBeGreaterThanOrEqual(2);
+    expect(testLinkMatches.length).toBeGreaterThanOrEqual(3);
     expect(testLinkMatches.some(link => link.includes('/api/echo-secret'))).toBe(true);
+    expect(testLinkMatches.some(link => link.includes('/api/markets'))).toBe(true);
     expect(testLinkMatches.some(link => link.includes('/api/blob-example'))).toBe(true);
   });
 
