@@ -1,228 +1,227 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Crypto Proxy - API Endpoints</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Crypto Proxy - API Endpoints</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
 
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            padding: 2rem;
-            color: #333;
-        }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      padding: 2rem;
+      color: #333;
+    }
 
-        .container {
-            max-width: 900px;
-            margin: 0 auto;
-            background: white;
-            border-radius: 16px;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-            overflow: hidden;
-        }
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+      background: white;
+      border-radius: 16px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+      overflow: hidden;
+    }
 
-        .header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            padding: 2rem;
-            text-align: center;
-        }
+    .header {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 2rem;
+      text-align: center;
+    }
 
-        .header h1 {
-            font-size: 2.5rem;
-            margin-bottom: 0.5rem;
-            font-weight: 700;
-        }
+    .header h1 {
+      font-size: 2.5rem;
+      margin-bottom: 0.5rem;
+      font-weight: 700;
+    }
 
-        .header p {
-            opacity: 0.9;
-            font-size: 1.1rem;
-        }
+    .header p {
+      opacity: 0.9;
+      font-size: 1.1rem;
+    }
 
-        .content {
-            padding: 2rem;
-        }
+    .content {
+      padding: 2rem;
+    }
 
-        .endpoint {
-            background: #f8f9fa;
-            border-radius: 12px;
-            padding: 1.5rem;
-            margin-bottom: 1.5rem;
-            border-left: 4px solid #667eea;
-            transition: transform 0.2s, box-shadow 0.2s;
-        }
+    .endpoint {
+      background: #f8f9fa;
+      border-radius: 12px;
+      padding: 1.5rem;
+      margin-bottom: 1.5rem;
+      border-left: 4px solid #667eea;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
 
-        .endpoint:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-        }
+    .endpoint:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    }
 
-        .endpoint-header {
-            display: flex;
-            align-items: center;
-            gap: 1rem;
-            margin-bottom: 1rem;
-            flex-wrap: wrap;
-        }
+    .endpoint-header {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      margin-bottom: 1rem;
+      flex-wrap: wrap;
+    }
 
-        .method {
-            display: inline-block;
-            padding: 0.4rem 0.8rem;
-            border-radius: 6px;
-            font-weight: 600;
-            font-size: 0.85rem;
-            text-transform: uppercase;
-        }
+    .method {
+      display: inline-block;
+      padding: 0.4rem 0.8rem;
+      border-radius: 6px;
+      font-weight: 600;
+      font-size: 0.85rem;
+      text-transform: uppercase;
+    }
 
-        .method.get {
-            background: #10b981;
-            color: white;
-        }
+    .method.get {
+      background: #10b981;
+      color: white;
+    }
 
-        .method.post {
-            background: #3b82f6;
-            color: white;
-        }
+    .method.post {
+      background: #3b82f6;
+      color: white;
+    }
 
-        .method.put {
-            background: #f59e0b;
-            color: white;
-        }
+    .method.put {
+      background: #f59e0b;
+      color: white;
+    }
 
-        .method.delete {
-            background: #ef4444;
-            color: white;
-        }
+    .method.delete {
+      background: #ef4444;
+      color: white;
+    }
 
-        .path {
-            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
-            font-size: 1.1rem;
-            font-weight: 600;
-            color: #667eea;
-        }
+    .path {
+      font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: #667eea;
+    }
 
-        .description {
-            color: #666;
-            line-height: 1.6;
-            margin-bottom: 1rem;
-        }
+    .description {
+      color: #666;
+      line-height: 1.6;
+      margin-bottom: 1rem;
+    }
 
-        .details {
-            background: white;
-            border-radius: 8px;
-            padding: 1rem;
-            margin-top: 1rem;
-        }
+    .details {
+      background: white;
+      border-radius: 8px;
+      padding: 1rem;
+      margin-top: 1rem;
+    }
 
-        .details h4 {
-            color: #333;
-            margin-bottom: 0.5rem;
-            font-size: 0.9rem;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
+    .details h4 {
+      color: #333;
+      margin-bottom: 0.5rem;
+      font-size: 0.9rem;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
 
-        .details code {
-            background: #f1f3f5;
-            padding: 0.2rem 0.4rem;
-            border-radius: 4px;
-            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
-            font-size: 0.9rem;
-            color: #e83e8c;
-        }
+    .details code {
+      background: #f1f3f5;
+      padding: 0.2rem 0.4rem;
+      border-radius: 4px;
+      font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+      font-size: 0.9rem;
+      color: #e83e8c;
+    }
 
-        .test-link {
-            display: inline-block;
-            margin-top: 1rem;
-            padding: 0.6rem 1.2rem;
-            background: #667eea;
-            color: white;
-            text-decoration: none;
-            border-radius: 6px;
-            font-weight: 500;
-            transition: background 0.2s;
-        }
+    .test-link {
+      display: inline-block;
+      margin-top: 1rem;
+      padding: 0.6rem 1.2rem;
+      background: #667eea;
+      color: white;
+      text-decoration: none;
+      border-radius: 6px;
+      font-weight: 500;
+      transition: background 0.2s;
+    }
 
-        .test-link:hover {
-            background: #5568d3;
-        }
+    .test-link:hover {
+      background: #5568d3;
+    }
 
-        .footer {
-            text-align: center;
-            padding: 2rem;
-            color: #666;
-            border-top: 1px solid #e9ecef;
-        }
+    .footer {
+      text-align: center;
+      padding: 2rem;
+      color: #666;
+      border-top: 1px solid #e9ecef;
+    }
 
-        @media (max-width: 600px) {
-            .header h1 {
-                font-size: 1.8rem;
-            }
+    @media (max-width: 600px) {
+      .header h1 {
+        font-size: 1.8rem;
+      }
 
-            .path {
-                font-size: 0.95rem;
-            }
+      .path {
+        font-size: 0.95rem;
+      }
 
-            .endpoint-header {
-                flex-direction: column;
-                align-items: flex-start;
-            }
-        }
-    </style>
+      .endpoint-header {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+    }
+  </style>
 </head>
 <body>
-    <div class="container">
-        <div class="header">
-            <h1>🚀 Crypto Proxy API</h1>
-            <p>Available Serverless Endpoints</p>
-        </div>
-
-        <div class="content">
-            <div class="endpoint">
-                <div class="endpoint-header">
-                    <span class="method get">GET</span>
-                    <span class="path">/api/echo-secret</span>
-                </div>
-                <div class="description">
-                    Echoes the <code>SECRET_KEY</code> environment variable. This endpoint demonstrates secure secret management using Vercel environment variables.
-                </div>
-                <div class="details">
-                    <h4>Response</h4>
-                    <code>{"secretKey": "your-secret-value", "message": "Secret key retrieved successfully"}</code>
-                </div>
-                <a href="/api/echo-secret" class="test-link" target="_blank">Test Endpoint →</a>
-            </div>
-
-            <div class="endpoint">
-                <div class="endpoint-header">
-                    <span class="method get">GET</span>
-                    <span class="method post">POST</span>
-                    <span class="path">/api/blob-example</span>
-                </div>
-                <div class="description">
-                    Example endpoint demonstrating Vercel Blob storage functionality. GET requests list all blobs, POST requests can upload files (implementation required).
-                </div>
-                <div class="details">
-                    <h4>GET Response</h4>
-                    <code>{"blobs": [...]}</code>
-                    <h4 style="margin-top: 0.75rem;">POST</h4>
-                    <code>Upload file to blob storage (requires BLOB_READ_WRITE_TOKEN)</code>
-                </div>
-                <a href="/api/blob-example" class="test-link" target="_blank">Test Endpoint →</a>
-            </div>
-        </div>
-
-        <div class="footer">
-            <p>Powered by Vercel Serverless Functions</p>
-        </div>
+  <div class="container">
+    <div class="header">
+      <h1>🚀 Crypto Proxy API</h1>
+      <p>Available Serverless Endpoints</p>
     </div>
+
+    <div class="content">
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <span class="path">/api/echo-secret</span>
+        </div>
+        <div class="description">
+          Echoes the <code>SECRET_KEY</code> environment variable. This endpoint demonstrates secure secret management using Vercel environment variables.
+        </div>
+        <div class="details">
+          <h4>Response</h4>
+          <code>{"secretKey": "your-secret-value", "message": "Secret key retrieved successfully"}</code>
+        </div>
+        <a href="/api/echo-secret" class="test-link" target="_blank">Test Endpoint →</a>
+      </div>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <span class="method post">POST</span>
+          <span class="path">/api/blob-example</span>
+        </div>
+        <div class="description">
+          Example endpoint demonstrating Vercel Blob storage functionality. GET requests list all blobs, POST requests can upload files (implementation required).
+        </div>
+        <div class="details">
+          <h4>GET Response</h4>
+          <code>{"blobs": [...]}</code>
+          <h4 style="margin-top: 0.75rem;">POST</h4>
+          <code>Upload file to blob storage (requires BLOB_READ_WRITE_TOKEN)</code>
+        </div>
+        <a href="/api/blob-example" class="test-link" target="_blank">Test Endpoint →</a>
+      </div>
+    </div>
+
+    <div class="footer">
+      <p>Powered by Vercel Serverless Functions</p>
+    </div>
+  </div>
 </body>
 </html>
-
