@@ -15,6 +15,12 @@ npm install
 -  Add secret keys to Vercel dashboard under the project.
 -  env.local doesn't seem to work.
 
+
+### 3. Testing
+
+`npm test`
+
+
 #### Vercel Deployment
 
 `vercel dev`
