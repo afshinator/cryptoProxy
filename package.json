@@ -1,0 +1,25 @@
+{
+  "name": "crypto-proxy",
+  "version": "1.0.0",
+  "description": "Vercel serverless functions with Blob storage",
+  "main": "index.js",
+  "engines": {
+    "node": "20.x"
+  },
+  "scripts": {
+    "build": "echo 'No build step required'"
+  },
+  "keywords": [
+    "vercel",
+    "serverless",
+    "blob"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@vercel/blob": "^0.19.0"
+  },
+  "devDependencies": {
+    "vercel": "^48.12.0"
+  }
+}

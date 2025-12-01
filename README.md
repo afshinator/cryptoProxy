@@ -17,8 +17,7 @@ npm install
 
 #### Vercel Deployment
 
-vercel dev
+`vercel dev`
 
-vercel deploy
+`vercel deploy`
 
-# cryptoProxy
