@@ -4,7 +4,9 @@
   "description": "Vercel serverless functions with Blob storage",
   "main": "index.js",
   "scripts": {
-    "build": "echo 'No build step required'"
+    "build": "echo 'No build step required'",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "keywords": [
     "vercel",
