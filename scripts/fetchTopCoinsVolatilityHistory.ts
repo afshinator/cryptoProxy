@@ -1,29 +1,31 @@
 // Filename: scripts/fetchTopCoinsVolatilityHistory.ts
 /**
- * Top Coins Historical Market Data Fetcher - to seed the database with historical market volatility data
+ * Top Coins Historical Market Data Fetcher
  * 
  * This script fetches the top N coins by market cap from CoinGecko, then retrieves
- * 90 days of historical market data for each coin and saves each coin's data to a separate JSON file.
+ * 90 days of historical OHLCV (Open, High, Low, Close, Volume) data for each coin
+ * and saves each coin's data to a separate JSON file.
  * 
  * This data will be used to seed the database with historical market volatility data,
  * and also used to calculate current volatility.
  * 
- * How it works:
+ * How it works (via utils/volatilityHistory.ts):
  * 1. Uses the same API key loading method as the markets endpoint (via coingeckoConfig)
  * 2. Fetches top N coins from CoinGecko markets endpoint (ordered by market cap)
- * 3. For each coin, calls the /coins/{id}/market_chart endpoint with:
- *    - vs_currency=usd
- *    - days=90
- *    - interval=daily
- * 4. Saves the response to a JSON file in the data/top-coins-history/ directory
+ * 3. For each coin, calls TWO CoinGecko endpoints in parallel:
+ *    - /coins/{id}/ohlc (for Open, High, Low, Close)
+ *    - /coins/{id}/market_chart (for Volume)
+ * 4. Merges OHLC and Volume data by timestamp to form a complete OHLCV array
+ * 5. Saves the OHLCV array to a JSON file in the data/top-coins-history/ directory
  *    - Filename format: [coinId]-[startDate]-[endDate].json
  *    - Dates are formatted as MM-DD-YY
- * 5. Pauses between requests to avoid rate limiting
- * 6. Skips coins that return 404 (not found)
+ * 6. Pauses 4 seconds between requests to avoid rate limiting
+ * 7. Skips coins that return 404 (not found)
  * 
- * Output: One JSON file per coin in the data/top-coins-history/ directory containing prices, market_caps, and total_volumes arrays
+ * Output: One JSON file per coin in the data/top-coins-history/ directory containing
+ * an array of HistoricalOHLCVDataPoint objects with { time, open, high, low, close, volume }
  * 
- * Usage: npx tsx scripts/fetchTopCoinsData.ts
+ * Usage: npx tsx scripts/fetchTopCoinsVolatilityHistory.ts
  */
 
 import { log, ERR, LOG } from '../utils/log.js';
@@ -53,6 +55,7 @@ interface MarketCoin {
   [key: string]: any;
 }
 
+// NOTE: This function is preserved but no longer used in main()
 export function isStablecoin(coin: MarketCoin): boolean {
   // Check if coin symbol or name matches any stablecoin
   const coinSymbolUpper = coin.symbol.toUpperCase();
@@ -97,23 +100,18 @@ export async function main() {
       process.exit(1);
     }
 
-    // Filter out stablecoins
-    const filteredCoins = topCoins.filter(coin => !isStablecoin(coin));
-    const skippedCount = topCoins.length - filteredCoins.length;
+    // --- START UPDATED LOGIC: Stablecoin filtering removed ---
+    const coinsToProcess = topCoins;
     
-    if (skippedCount > 0) {
-      log(`Skipped ${skippedCount} stablecoin(s)`, LOG);
-    }
-    
-    if (filteredCoins.length === 0) {
-      log('No non-stablecoin coins found after filtering', ERR);
+    if (coinsToProcess.length === 0) {
+      log('No coins found to process', ERR);
       process.exit(1);
     }
 
-    log(`Starting data fetch for ${filteredCoins.length} coins...`, LOG);
+    log(`Starting data fetch for ${coinsToProcess.length} coins (including stablecoins)...`, LOG);
 
     // Convert MarketCoin[] to CoinInfo[]
-    const coins: CoinInfo[] = filteredCoins.map(coin => ({
+    const coins: CoinInfo[] = coinsToProcess.map(coin => ({
       id: coin.id,
       symbol: coin.symbol,
       name: coin.name
@@ -121,6 +119,7 @@ export async function main() {
 
     await processCoins(coins, OUTPUT_DIR);
     log('All data fetched successfully!', LOG);
+    // --- END UPDATED LOGIC ---
   } catch (error) {
     if (error instanceof CoinGeckoApiError) {
       log(`Failed to fetch top coins: ${error.message} (Status: ${error.status})`, ERR);
@@ -133,7 +132,6 @@ export async function main() {
 }
 
 // Only run main() if this file is executed directly (not imported)
-if (import.meta.url === `file://${process.argv[1]}` || process.argv[1]?.endsWith('fetchTopCoinsData.ts')) {
+if (import.meta.url === `file://${process.argv[1]}` || process.argv[1]?.endsWith('fetchTopCoinsVolatilityHistory.ts')) {
   main();
 }
-

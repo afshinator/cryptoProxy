@@ -18,8 +18,10 @@ import * as path from 'path';
 import { log, ERR, WARN, INFO } from '../utils/log';
 
 // Define the structure for the data points required for VWATR
+// This structure now correctly matches the merged output from utils/volatilityHistory.ts
 interface HistoricalOHLCVDataPoint {
   time: number;
+  open: number; // Added 'open' for completeness, though not strictly required for TR/VWATR
   high: number;
   low: number;
   close: number;
@@ -60,15 +62,19 @@ function loadAndNormalizeData() {
     const currentBagSet = bagName === 'superstar' ? superstarSet : top20Set;
 
     for (const file of files) {
-      // Assumes file name is the symbol, e.g., 'btc.json' -> 'btc'
-      const coinSymbol = file.replace('.json', '').toLowerCase();
+      // Assumes file name is the symbol, e.g., 'btc-09-01-24-12-01-24.json' -> 'btc'
+      const coinSymbol = file.split('-')[0].toLowerCase();
       const filePath = path.join(dirPath, file);
 
       try {
-        // NOTE ON DATA FORMAT: The VWATR calculation requires High, Low, Close, and Volume.
-        // It is critical that the JSON structure loaded here contains this OHLCV data,
-        // otherwise VWATR calculation will fail.
+        // Data format is now guaranteed to be the clean OHLCV array
         const rawData: HistoricalOHLCVDataPoint[] = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
+
+        // Validate that the new OHLCV data structure is present
+        if (rawData.length === 0 || !('high' in rawData[0]) || !('low' in rawData[0]) || !('volume' in rawData[0])) {
+            log(`File ${file} structure is invalid or empty. Skipping.`, ERR);
+            continue;
+        }
 
         // 1. Add symbol to the current bag tracking set
         currentBagSet.add(coinSymbol);
@@ -76,7 +82,7 @@ function loadAndNormalizeData() {
         // 2. Normalize: Store the history only once per unique coin symbol
         if (!uniqueCoinHistory.has(coinSymbol)) {
           uniqueCoinHistory.set(coinSymbol, rawData);
-          log(`Normalized history loaded for: ${coinSymbol}`);
+          log(`Normalized history loaded for: ${coinSymbol} (${rawData.length} records)`);
         }
 
       } catch (e) {
