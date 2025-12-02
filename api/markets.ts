@@ -1,12 +1,13 @@
-// Filename: api/markets.js
+// Filename: api/markets.ts
 /**
  * Markets endpoint that mirrors CoinGecko's /coins/markets endpoint
  * Supports query parameters: vs_currency, order, per_page, page, sparkline, price_change_percentage
  */
-import { log, ERR } from '../utils/log.ts';
+import { log, ERR } from '../utils/log.js';
 import { buildCoingeckoUrl } from '../utils/coingeckoConfig.js';
+import type { VercelRequest, VercelResponse } from '@vercel/node';
 
-export default async function handler(req, res) {
+export default async function handler(req: VercelRequest, res: VercelResponse) {
   // Only allow GET requests
   if (req.method !== 'GET') {
     return res.status(405).json({ error: 'Method not allowed' });
@@ -69,10 +70,12 @@ export default async function handler(req, res) {
     // Return the market data
     return res.status(200).json(data);
   } catch (error) {
-    log(`Error fetching markets data: ${error.message}`, ERR);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    log(`Error fetching markets data: ${errorMessage}`, ERR);
     return res.status(500).json({
       error: 'Failed to fetch markets data',
-      message: error.message
+      message: errorMessage
     });
   }
 }
+

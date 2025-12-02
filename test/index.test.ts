@@ -55,10 +55,10 @@ describe('Index Page Tests', () => {
   it('should have test links for all endpoints', () => {
     const testLinkMatches = htmlContent.match(/href="\/api\/[^"]+"/g);
     expect(testLinkMatches).toBeTruthy();
-    expect(testLinkMatches.length).toBeGreaterThanOrEqual(3);
-    expect(testLinkMatches.some(link => link.includes('/api/echo-secret'))).toBe(true);
-    expect(testLinkMatches.some(link => link.includes('/api/markets'))).toBe(true);
-    expect(testLinkMatches.some(link => link.includes('/api/blob-example'))).toBe(true);
+    expect(testLinkMatches!.length).toBeGreaterThanOrEqual(3);
+    expect(testLinkMatches!.some(link => link.includes('/api/echo-secret'))).toBe(true);
+    expect(testLinkMatches!.some(link => link.includes('/api/markets'))).toBe(true);
+    expect(testLinkMatches!.some(link => link.includes('/api/blob-example'))).toBe(true);
   });
 
   it('should have proper styling (CSS)', () => {

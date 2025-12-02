@@ -1,11 +1,12 @@
-// api/blob-example.js
+// api/blob-example.ts
 /**
  * Example endpoint demonstrating Vercel Blob storage usage
  * This is optional - remove if you don't need blob storage
  */
 import { put, list, head, del } from '@vercel/blob';
+import type { VercelRequest, VercelResponse } from '@vercel/node';
 
-export default async function handler(req, res) {
+export default async function handler(req: VercelRequest, res: VercelResponse) {
   const token = process.env.BLOB_READ_WRITE_TOKEN;
 
   if (!token) {
@@ -33,9 +34,10 @@ export default async function handler(req, res) {
         return res.status(405).json({ error: 'Method not allowed' });
     }
   } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     return res.status(500).json({ 
       error: 'Blob operation failed',
-      message: error.message 
+      message: errorMessage 
     });
   }
 }
