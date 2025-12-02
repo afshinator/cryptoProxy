@@ -4,6 +4,15 @@
 
 ## Data preparation
 
+1. Static Initial Data vs. Dynamic Operational Data
+Your current setup only addresses the static, initial data loading needed for the first deployment:
+
+scripts/fetchTopCoinsVolatilityHistory.ts: This script runs once (or manually whenever you want to update the base data set) to capture the Top 20 coins at that moment in time and saves them to Vercel Blob.
+
+This initial upload gives you a starting set of history, but it does not automatically update that list or the history months later.
+
+
+
 ### 1. Data Capture (OHLCV)
 
 Fetching scripts (`fetchTopCoinsVolatilityHistory.ts` and `fetchSuperstarsVolatilityHistory.ts`) explicitly state and utilize the corrected data retrieval method:
@@ -28,4 +37,9 @@ Scripts are capturing all five required components (Open, High, Low, Close, Volu
 This completes the required chain: **Fetch OHLCV $\rightarrow$ Validate OHLCV $\rightarrow$ Upload OHLCV** for consumption by the VWATR calculation logic.
 
 
-## 
+## Server side calculation logic
+
+- `utils/vwatrCalculator.ts`: This utility contains the core math functions (True Range, Volume-Weighted ATR).
+
+- `api/vwatr.ts`: This is the Vercel Serverless function (API route) that fetches the historical data from Vercel Blob, runs the calculation using the utility, and returns the result to your frontend.
+
