@@ -5,19 +5,17 @@
  * This Vercel Serverless function serves as the central endpoint for calculating
  * various volatility metrics (like VWATR) based on historical data stored in Vercel Blob.
  *
- * Data Adaptability: This endpoint handles historical data with coarse, variable granularity
- * (e.g., multi-day candles). It calculates the actual candle interval (days per candle),
- * converts the requested lookback periods (in days) into the required number of candles,
- * and passes the candle interval to the utility function for final normalization to a
- * daily VWATR equivalent.
+ * IMPORTANT: Maximum period is 30 days. Historical data is fetched with daily granularity
+ * (30 days of daily OHLCV data). Periods > 30 days will be rejected.
  *
  * Query Parameters:
  * - type (string, optional): The type of volatility metric to calculate. Default: 'vwatr'.
  * - bag (string, optional): Specifies the set of coins to process. Default: 'top20_bag'.
  * - periods (string, optional, relevant only for type=vwatr): Comma-separated list of lookback days.
+ *   Maximum: 30 days. Example: '7,14,30'. Default: [7, 14, 30].
  *
  * Output:
- * - JSON response containing the calculated metrics (normalized daily VWATR, ATR%) for each coin
+ * - JSON response containing the calculated metrics (daily VWATR, ATR%) for each coin
  * in the specified bag, broken down by the requested lookback periods.
  */
 
@@ -59,8 +57,9 @@ const DEFAULT_BAG = 'top20_bag';
 const VOLATILITY_TYPE_VWATR = 'vwatr';
 const SUPPORTED_TYPES = [VOLATILITY_TYPE_VWATR];
 // Default specific periods if none are passed in the query
-// Note: With 30-day data fetch, periods > 30 days may have limited data
+// Maximum period: 30 days (matches available historical data)
 const DEFAULT_VWATR_PERIODS = [7, 14, 30];
+const MAX_PERIOD_DAYS = 30;
 // ---------------------
 
 /**
@@ -109,14 +108,15 @@ async function findLatestBlob(prefix: string, token: string | undefined): Promis
 
 
 /**
- * Parses the 'periods' query parameter (e.g., "7,30,90") into an array of positive integers.
+ * Parses the 'periods' query parameter (e.g., "7,14,30") into an array of positive integers.
+ * Validates that all periods are <= MAX_PERIOD_DAYS (30 days).
  * Defaults to DEFAULT_VWATR_PERIODS if the query parameter is missing or invalid.
  * @param queryPeriods The value of req.query.periods
- * @returns Array of integer periods in DAYS
+ * @returns Array of integer periods in DAYS (max 30 days)
  */
-function parsePeriods(queryPeriods: string | string[] | undefined): number[] {
+function parsePeriods(queryPeriods: string | string[] | undefined): { periods: number[]; invalidPeriods: number[] } {
   if (!queryPeriods) {
-    return DEFAULT_VWATR_PERIODS;
+    return { periods: DEFAULT_VWATR_PERIODS, invalidPeriods: [] };
   }
 
   const periodsStr = Array.isArray(queryPeriods) ? queryPeriods[0] : queryPeriods;
@@ -126,7 +126,18 @@ function parsePeriods(queryPeriods: string | string[] | undefined): number[] {
     .filter(p => !isNaN(p) && p > 0)
     .sort((a, b) => a - b); // Sort to ensure consistent processing
 
-  return parsedPeriods.length > 0 ? parsedPeriods : DEFAULT_VWATR_PERIODS;
+  if (parsedPeriods.length === 0) {
+    return { periods: DEFAULT_VWATR_PERIODS, invalidPeriods: [] };
+  }
+
+  // Filter out periods > MAX_PERIOD_DAYS
+  const validPeriods = parsedPeriods.filter(p => p <= MAX_PERIOD_DAYS);
+  const invalidPeriods = parsedPeriods.filter(p => p > MAX_PERIOD_DAYS);
+
+  return {
+    periods: validPeriods.length > 0 ? validPeriods : DEFAULT_VWATR_PERIODS,
+    invalidPeriods
+  };
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -161,11 +172,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (volatilityType === VOLATILITY_TYPE_VWATR) {
 
       // 3. Determine which periods to calculate (in days)
-      const periodsToCalculateDays = parsePeriods(req.query.periods);
+      const { periods: periodsToCalculateDays, invalidPeriods } = parsePeriods(req.query.periods);
 
       // Check if we got any valid periods (should default if not)
       if (periodsToCalculateDays.length === 0) {
-        return res.status(400).json({ error: 'Invalid or empty period list provided for VWATR calculation.' });
+        return res.status(400).json({ 
+          error: 'Invalid or empty period list provided for VWATR calculation.',
+          message: `All requested periods exceed the maximum of ${MAX_PERIOD_DAYS} days.`
+        });
+      }
+
+      // Warn about invalid periods > 30 days
+      if (invalidPeriods.length > 0) {
+        log(`⚠️ Requested periods ${invalidPeriods.join(', ')} exceed maximum of ${MAX_PERIOD_DAYS} days. Only periods <= ${MAX_PERIOD_DAYS} will be calculated.`, WARN);
       }
 
       // 4. Fetch the Bag Manifest using the robust finder
@@ -236,8 +255,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           // 7. Run the VWATR Calculation, converting requested days into candles.
           const results = periodsToCalculateDays
             .map(periodDays => {
-              // Convert the requested lookback period (in days) to a period in coarse candles.
-              // We use Math.round as the interval is usually not a clean integer (e.g., 4.09).
+              // Convert the requested lookback period (in days) to a period in candles.
+              // We use Math.round as the interval is usually not a clean integer (e.g., 1.03 for daily).
               const periodCandles = Math.round(periodDays / candleIntervalDays);
 
               // Check if the required number of candles exceeds available data or is too small.
@@ -247,7 +266,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
               }
 
               // The utility function requires 4 arguments for the normalization calculation.
-              return calculateVWATR(symbol, trData, periodCandles, candleIntervalDays);
+              const result = calculateVWATR(symbol, trData, periodCandles, candleIntervalDays);
+              
+              // Map the result to use the original requested period in days, not candles
+              if (result) {
+                return {
+                  ...result,
+                  period: periodDays, // Return the requested period in days, not candles
+                };
+              }
+              return null;
             })
             .filter((result): result is NonNullable<typeof result> => result !== null);
 
@@ -271,7 +299,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(200).json({
         type: VOLATILITY_TYPE_VWATR,
         bag: bagName,
-        periods: periodsToCalculateDays, // Include originally requested periods in the response
+        periods: periodsToCalculateDays, // Include valid periods in the response
+        maxPeriod: MAX_PERIOD_DAYS, // Include max supported period
+        ...(invalidPeriods.length > 0 && { 
+          warning: `Periods ${invalidPeriods.join(', ')} exceed maximum of ${MAX_PERIOD_DAYS} days and were ignored.` 
+        }),
         timestamp: Date.now(),
         data: results,
       });

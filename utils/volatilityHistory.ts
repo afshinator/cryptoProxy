@@ -152,66 +152,96 @@ export async function fetchCoinData(coinId: string): Promise<HistoricalOHLCVData
     // Sort by timestamp to enable efficient range queries
     volumeData.sort((a, b) => a[0] - b[0]);
 
-    // 3. Merge OHLC and Volume Data
-    // For 4-day interval candles, we need to aggregate volumes for the period each candle covers
+    // 3. Aggregate OHLC candles and merge with Volume Data
+    // CoinGecko returns 4-hour candles for <=30 days, but we need daily candles for VWATR
+    // Strategy: Group 4-hour candles by day, create daily OHLC, then match with daily volume
+    
+    // Step 3a: Group OHLC candles by day
+    const dailyCandles = new Map<number, {
+        dayStart: number; // Midnight timestamp for the day
+        candles: Array<[number, number, number, number, number]>; // [timestamp, open, high, low, close]
+    }>();
+    
+    for (const candle of ohlc) {
+        const [timestamp, open, high, low, close] = candle;
+        // Round down to midnight (start of day)
+        const dayStart = Math.floor(timestamp / 86400000) * 86400000;
+        
+        if (!dailyCandles.has(dayStart)) {
+            dailyCandles.set(dayStart, { dayStart, candles: [] });
+        }
+        dailyCandles.get(dayStart)!.candles.push([timestamp, open, high, low, close]);
+    }
+    
+    // Step 3b: Aggregate 4-hour candles into daily candles
+    const aggregatedDailyCandles: Array<{
+        time: number;
+        open: number;
+        high: number;
+        low: number;
+        close: number;
+    }> = [];
+    
+    const sortedDays = Array.from(dailyCandles.keys()).sort((a, b) => a - b);
+    for (const dayStart of sortedDays) {
+        const dayData = dailyCandles.get(dayStart)!;
+        const candles = dayData.candles.sort((a, b) => a[0] - b[0]); // Sort by timestamp
+        
+        // Daily OHLC aggregation:
+        // - Open: first candle's open
+        // - High: maximum high across all candles
+        // - Low: minimum low across all candles
+        // - Close: last candle's close
+        const dailyOpen = candles[0][1];
+        const dailyHigh = Math.max(...candles.map(c => c[2]));
+        const dailyLow = Math.min(...candles.map(c => c[3]));
+        const dailyClose = candles[candles.length - 1][4];
+        
+        aggregatedDailyCandles.push({
+            time: dayStart, // Use midnight as the day's timestamp
+            open: dailyOpen,
+            high: dailyHigh,
+            low: dailyLow,
+            close: dailyClose,
+        });
+    }
+    
+    log(`  [${coinId}] Aggregated ${ohlc.length} 4-hour candles into ${aggregatedDailyCandles.length} daily candles`, LOG);
+    
+    // Step 3c: Merge daily OHLC with daily volume
     const mergedData: HistoricalOHLCVDataPoint[] = [];
     let mergedWithVolume = 0;
     let mergedWithoutVolume = 0;
     
-    for (let i = 0; i < ohlc.length; i++) {
-        const candle = ohlc[i];
-        const [timestamp, open, high, low, close] = candle;
+    for (const dailyCandle of aggregatedDailyCandles) {
+        // Find matching volume for this day
+        const dayVolume = volumeData.find(([volTimestamp]) => volTimestamp === dailyCandle.time);
         
-        // Determine the time range this candle covers
-        // For the last candle, use a reasonable estimate (4 days forward)
-        // For other candles, use the period until the next candle
-        let periodEnd: number;
-        if (i < ohlc.length - 1) {
-            // Period ends at the start of the next candle
-            periodEnd = ohlc[i + 1][0];
+        if (dayVolume) {
+            mergedWithVolume++;
+            mergedData.push({
+                time: dailyCandle.time,
+                open: dailyCandle.open,
+                high: dailyCandle.high,
+                low: dailyCandle.low,
+                close: dailyCandle.close,
+                volume: dayVolume[1], // Use the daily volume
+            });
         } else {
-            // Last candle: estimate 4 days forward (typical interval)
-            const avgInterval = ohlc.length > 1 
-                ? (ohlc[ohlc.length - 1][0] - ohlc[0][0]) / (ohlc.length - 1)
-                : 4 * 24 * 60 * 60 * 1000; // Default to 4 days in ms
-            periodEnd = timestamp + avgInterval;
-        }
-        
-        // Round timestamps to day boundaries for matching
-        const periodStart = Math.floor(timestamp / 86400000) * 86400000;
-        const periodEndRounded = Math.floor(periodEnd / 86400000) * 86400000;
-        
-        // Aggregate all volumes within this period
-        let aggregatedVolume = 0;
-        let volumeDaysFound = 0;
-        for (const [volTimestamp, volume] of volumeData) {
-            // Include volumes that fall within the candle's period (inclusive start, exclusive end)
-            if (volTimestamp >= periodStart && volTimestamp < periodEndRounded) {
-                aggregatedVolume += volume;
-                volumeDaysFound++;
-            }
-        }
-        
-        if (aggregatedVolume === 0 || volumeDaysFound === 0) {
             mergedWithoutVolume++;
             if (mergedWithoutVolume <= 5) { // Only log first 5 to avoid spam
-                log(`  [${coinId}] Warning: No volume data found for candle at ${new Date(timestamp).toISOString()} (period: ${new Date(periodStart).toISOString()} to ${new Date(periodEndRounded).toISOString()}).`, WARN);
+                log(`  [${coinId}] Warning: No volume data found for day ${new Date(dailyCandle.time).toISOString().split('T')[0]}.`, WARN);
             }
-        } else {
-            mergedWithVolume++;
-            if (i === 0) { // Log first successful merge as example
-                log(`  [${coinId}] Volume aggregation example: Candle at ${new Date(timestamp).toISOString()} aggregated ${volumeDaysFound} daily volumes = ${aggregatedVolume.toFixed(2)}`, LOG);
-            }
+            // Still include the candle with 0 volume
+            mergedData.push({
+                time: dailyCandle.time,
+                open: dailyCandle.open,
+                high: dailyCandle.high,
+                low: dailyCandle.low,
+                close: dailyCandle.close,
+                volume: 0,
+            });
         }
-
-        mergedData.push({
-            time: timestamp,
-            open,
-            high,
-            low,
-            close,
-            volume: aggregatedVolume, // Use aggregated volume for the period
-        });
     }
     
     if (mergedWithoutVolume > 0) {

@@ -23,7 +23,7 @@ Fetching scripts (`fetchTopCoinsVolatilityHistory.ts` and `fetchSuperstarsVolati
     2.  Call the CoinGecko `/market_chart` endpoint (provides Volume).
     3.  **Merge** these two data streams by timestamp to create the final `HistoricalOHLCVDataPoint` array.
 
-Scripts are capturing all five required components (Open, High, Low, Close, Volume) for the 90-day history, the data is sufficient for VWATR calculation.
+Scripts are capturing all five required components (Open, High, Low, Close, Volume) for 30 days of daily historical data. This provides sufficient data for VWATR calculations with daily granularity. **Maximum supported period: 30 days.**
 
 
 ### 2. Data Upload and Availability
