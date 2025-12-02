@@ -28,7 +28,7 @@ import {
   precalculateTRData, // <-- Imported for efficiency optimization
   TRData // <-- Imported for type checking
 } from '../utils/vwatrCalculator.js';
-import { log, ERR, LOG } from '../utils/log';
+import { log, ERR, LOG } from '../utils/log.js';
 
 // Define the data structures for Blob data
 interface HistoricalOHLCVDataPoint {
