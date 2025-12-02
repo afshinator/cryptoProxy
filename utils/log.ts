@@ -40,7 +40,7 @@ export function log(message: string, priority: number = LOG): void {
   }
   // Priority 7-8 (INFO, INFO2): Information Logs (console.info)
   else if (priority >= INFO && priority <= INFO2) {
-    console.info(`[P${priority}] 📌 ${message}`);
+    console.info(`[P${priority}] ❕ ${message}`);
   }
   // Handles logs outside the 1-8 range, but below the threshold (e.g., priority 0)
   else {

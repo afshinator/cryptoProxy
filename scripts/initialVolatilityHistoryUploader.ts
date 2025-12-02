@@ -13,9 +13,19 @@
 import { put } from '@vercel/blob'; // Vercel Blob SDK
 import * as fs from 'fs'; // Node.js file system
 import * as path from 'path';
+import dotenv from 'dotenv';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
 
 // --- Import Custom Logging Utility ---
 import { log, ERR, WARN, INFO } from '../utils/log';
+
+// Load environment variables from .env.local
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+const projectRoot = join(__dirname, '..');
+const envPath = join(projectRoot, '.env.local');
+dotenv.config({ path: envPath });
 
 // Define the structure for the data points required for VWATR
 // This structure now correctly matches the merged output from utils/volatilityHistory.ts
@@ -33,8 +43,8 @@ const uniqueCoinHistory = new Map<string, HistoricalOHLCVDataPoint[]>();
 
 // --- Configuration: Paths to local data directories ---
 const dataPaths = {
-  superstar: path.join(process.cwd(), 'data', 'coin-history'),
-  top20: path.join(process.cwd(), 'data', 'top-coins-history'),
+  superstar: path.join(process.cwd(), 'scripts', 'data', 'coin-history'),
+  top20: path.join(process.cwd(), 'scripts', 'data', 'top-coins-history'),
 };
 
 // --- Bag Definitions (Dynamically populated during normalization) ---
@@ -135,9 +145,8 @@ async function runInitialSetup() {
   }
 }
 
-// To run this script locally: node -r ts-node/register scripts/initialUploader.ts
-// Ensure you have configured your Vercel CLI/environment for Blob access.
-// runInitialSetup();
-
-// NOTE: We don't call runInitialSetup() directly here as this is a conceptual script,
-// but the user should execute it via their local environment.
+// Run the script
+runInitialSetup().catch((error) => {
+  log(`Fatal error: ${error instanceof Error ? error.message : String(error)}`, ERR);
+  process.exit(1);
+});
