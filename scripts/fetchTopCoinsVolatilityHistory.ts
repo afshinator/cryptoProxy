@@ -15,13 +15,13 @@
  *    - vs_currency=usd
  *    - days=90
  *    - interval=daily
- * 4. Saves the response to a JSON file in the top-coins-history/ directory
+ * 4. Saves the response to a JSON file in the data/top-coins-history/ directory
  *    - Filename format: [coinId]-[startDate]-[endDate].json
  *    - Dates are formatted as MM-DD-YY
  * 5. Pauses between requests to avoid rate limiting
  * 6. Skips coins that return 404 (not found)
  * 
- * Output: One JSON file per coin in the top-coins-history/ directory containing prices, market_caps, and total_volumes arrays
+ * Output: One JSON file per coin in the data/top-coins-history/ directory containing prices, market_caps, and total_volumes arrays
  * 
  * Usage: npx tsx scripts/fetchTopCoinsData.ts
  */
@@ -42,7 +42,7 @@ import '../utils/coingeckoConfig.js';
 
 // Configuration
 const TOP_COINS_COUNT = 25;    // We only want 20 but we'll skip stablecoins
-const OUTPUT_DIR = 'top-coins-history';
+const OUTPUT_DIR = 'data/top-coins-history';
 
 interface MarketCoin {
   id: string;

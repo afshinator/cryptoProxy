@@ -15,13 +15,13 @@
  *    - vs_currency=usd
  *    - days=90
  *    - interval=daily
- * 4. Saves the response to a JSON file in the coin-history/ directory
+ * 4. Saves the response to a JSON file in the data/coin-history/ directory
  *    - Filename format: [coinId]-[startDate]-[endDate].json
  *    - Dates are formatted as MM-DD-YY
  * 5. Pauses 2 seconds between requests to avoid rate limiting
  * 6. Stops execution if any request fails
  * 
- * Output: One JSON file per coin in the coin-history/ directory containing prices, market_caps, and total_volumes arrays
+ * Output: One JSON file per coin in the data/coin-history/ directory containing prices, market_caps, and total_volumes arrays
  * 
  * Usage: npx tsx scripts/fetchSeedData.ts
  */
@@ -39,14 +39,14 @@ import {
 // Import coingeckoConfig to trigger dotenv loading (same as markets endpoint)
 import '../utils/coingeckoConfig.js';
 
+// Configuration
+const OUTPUT_DIR = 'data/coin-history';
+
 // Re-export for tests
 export { formatDate, fetchCoinData };
 export async function saveToFile(coinId: string, data: Parameters<typeof saveToFileUtil>[1]): Promise<void> {
   return saveToFileUtil(coinId, data, OUTPUT_DIR);
 }
-
-// Configuration
-const OUTPUT_DIR = 'coin-history';
 
 // Get coin tickers from the first portfolio
 const COIN_TICKERS = Object.keys(cryptoPortfolios[0].coins);
