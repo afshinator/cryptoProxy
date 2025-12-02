@@ -128,7 +128,7 @@ describe('Markets Endpoint Tests', () => {
     expect(mockRes.status).toHaveBeenCalledWith(500);
     expect(mockRes.json).toHaveBeenCalledWith({
       error: 'Failed to fetch markets data',
-      message: 'Network error'
+      message: 'Failed to fetch from CoinGecko API: Network error'
     });
   });
 });

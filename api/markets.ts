@@ -3,8 +3,7 @@
  * Markets endpoint that mirrors CoinGecko's /coins/markets endpoint
  * Supports query parameters: vs_currency, order, per_page, page, sparkline, price_change_percentage
  */
-import { log, ERR } from '../utils/log.js';
-import { buildCoingeckoUrl } from '../utils/coingeckoConfig.js';
+import { fetchFromCoinGecko, handleApiError } from '../utils/coingeckoClient.js';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -20,7 +19,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       order = 'market_cap_desc',
       per_page = 100,
       page = 1,
-      sparkline = false,
+      sparkline = false, // TODO
       price_change_percentage = '',
       ids = '',
       category = '',
@@ -46,36 +45,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       params.append('category', String(category));
     }
 
-    // Use the factored utility to get the full URL with the API key
-    // buildCoingeckoUrl expects just the path, not the full URL
-    const url = buildCoingeckoUrl('/coins/markets', params);
-    // Fetch data from CoinGecko API
-    const response = await fetch(url, {
-      headers: {
-        'Accept': 'application/json',
-      },
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      return res.status(response.status).json({
-        error: 'CoinGecko API error',
-        message: `CoinGecko API responded with status ${response.status}`,
-        details: errorText
-      });
-    }
-
-    const data = await response.json();
+    // Fetch data from CoinGecko API using the reusable client
+    const data = await fetchFromCoinGecko('/coins/markets', params);
 
     // Return the market data
     return res.status(200).json(data);
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    log(`Error fetching markets data: ${errorMessage}`, ERR);
-    return res.status(500).json({
-      error: 'Failed to fetch markets data',
-      message: errorMessage
-    });
+    handleApiError(error, res, 'markets data');
   }
 }
 
