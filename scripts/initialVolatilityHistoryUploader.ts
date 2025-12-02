@@ -1,8 +1,11 @@
 /**
  * Initial Data Uploader: scripts/initialVolatilityHistoryUploader.ts
  *
- * NOTE: This is a ONE-TIME Node.js script run locally or during a build process.
+ * This is a ONE-TIME Node.js script run locally or during a build process.
  * It is NOT a Vercel API route. It reads local files and uploads them to Vercel Blob.
+ * 
+ * NOTE: Vercel tags each file with a hash, so files are not replaced; algorithm will choose latest file,
+ * but if you run this script again, you should probably delete the existing files first.
  *
  * ASSUMPTIONS:
  * 1. Your data is structured as an array of CryptoDataPoint (OHLCV) objects, required for VWATR.
