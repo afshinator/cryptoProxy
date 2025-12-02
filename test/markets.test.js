@@ -1,4 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+
+// Mock the log module
+vi.mock('../utils/log.ts', () => ({
+  log: vi.fn(),
+  ERR: 1,
+  LOG: 5
+}));
+
 import handler from '../api/markets.js';
 
 describe('Markets Endpoint Tests', () => {

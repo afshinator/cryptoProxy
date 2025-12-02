@@ -1,6 +1,7 @@
 {
   "name": "crypto-proxy",
   "version": "1.0.0",
+  "type": "module",
   "description": "Vercel serverless functions with Blob storage",
   "main": "index.js",
   "scripts": {

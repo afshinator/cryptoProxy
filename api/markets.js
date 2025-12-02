@@ -2,6 +2,9 @@
  * Markets endpoint that mirrors CoinGecko's /coins/markets endpoint
  * Supports query parameters: vs_currency, order, per_page, page, sparkline, price_change_percentage
  */
+import { log, ERR } from '../utils/log.ts';
+import { COINGECKO_MARKETS_ENDPOINT } from '../constants/api.ts';
+
 export default async function handler(req, res) {
   // Only allow GET requests
   if (req.method !== 'GET') {
@@ -23,7 +26,6 @@ export default async function handler(req, res) {
     } = req.query;
 
     // Build the CoinGecko API URL
-    const baseUrl = 'https://api.coingecko.com/api/v3/coins/markets';
     const params = new URLSearchParams();
     params.append('vs_currency', String(vs_currency));
     params.append('order', String(order));
@@ -42,7 +44,7 @@ export default async function handler(req, res) {
       params.append('category', String(category));
     }
 
-    const url = `${baseUrl}?${params.toString()}`;
+    const url = `${COINGECKO_MARKETS_ENDPOINT}?${params.toString()}`;
 
     // Fetch data from CoinGecko API
     const response = await fetch(url, {
@@ -65,7 +67,7 @@ export default async function handler(req, res) {
     // Return the market data
     return res.status(200).json(data);
   } catch (error) {
-    console.error('Error fetching markets data:', error);
+    log(`Error fetching markets data: ${error.message}`, ERR);
     return res.status(500).json({
       error: 'Failed to fetch markets data',
       message: error.message
