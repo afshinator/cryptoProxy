@@ -22,7 +22,7 @@
  */
 
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { head } from '@vercel/blob';
+import { list } from '@vercel/blob';
 import { 
   calculateVWATR, 
   precalculateTRData, // <-- Imported for efficiency optimization
@@ -113,9 +113,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       // 4. Fetch the Bag Manifest from Vercel Blob
       const manifestFileName = 'bag_manifest.json';
       log(`Fetching manifest: ${manifestFileName}`, LOG);
-      // Use head to get the blob URL, then fetch the content
-      const manifestBlobInfo = await head(manifestFileName, { token: process.env.BLOB_READ_WRITE_TOKEN });
-      const manifestResponse = await fetch(manifestBlobInfo.url);
+      // Use list to find the blob by name, then fetch the content
+      const { blobs } = await list({ prefix: manifestFileName, token: process.env.BLOB_READ_WRITE_TOKEN });
+      const manifestBlob = blobs.find(b => b.pathname === manifestFileName);
+      if (!manifestBlob) {
+        log(`Manifest blob not found: ${manifestFileName}`, ERR);
+        return res.status(404).json({ error: `Manifest file '${manifestFileName}' not found in blob storage.` });
+      }
+      const manifestResponse = await fetch(manifestBlob.url);
       const manifest = await manifestResponse.json() as BagManifest;
 
       const targetSymbols = manifest[bagName as keyof BagManifest];
@@ -131,8 +136,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         
         try {
           // 5. Fetch the historical OHLCV data for the coin
-          const historyBlobInfo = await head(historyFileName, { token: process.env.BLOB_READ_WRITE_TOKEN });
-          const historyResponse = await fetch(historyBlobInfo.url);
+          const { blobs: historyBlobs } = await list({ prefix: historyFileName, token: process.env.BLOB_READ_WRITE_TOKEN });
+          const historyBlob = historyBlobs.find(b => b.pathname === historyFileName);
+          if (!historyBlob) {
+            throw new Error(`History file '${historyFileName}' not found in blob storage.`);
+          }
+          const historyResponse = await fetch(historyBlob.url);
           const history = await historyResponse.json() as HistoricalOHLCVDataPoint[];
 
           // 6. OPTIMIZATION: Pre-calculate TR/TRV data ONCE per coin history.
