@@ -1,6 +1,6 @@
 // Filename: utils/coingeckoConfig.ts
 
-import { log, WARN } from './log.js';
+import { log, WARN, LOG } from './log.js';
 import dotenv from 'dotenv';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
@@ -41,6 +41,16 @@ export function buildCoingeckoUrl(endpointPath: string, params: URLSearchParams)
   // Conditionally append the API key to the parameters
   if (COINGECKO_API_KEY) {
     params.append('x_cg_demo_api_key', COINGECKO_API_KEY);
+    // Log that API key is being used (but don't log the actual key)
+    if (endpointPath.includes('/ohlc') || endpointPath.includes('/market_chart')) {
+      // Only log for OHLC/market_chart endpoints to avoid spam
+      log(`  ✅ API key detected: Using authenticated request for ${endpointPath}`, LOG);
+    }
+  } else {
+    // Warn if API key is missing for OHLC/market_chart endpoints
+    if (endpointPath.includes('/ohlc') || endpointPath.includes('/market_chart')) {
+      log(`  ⚠️ No API key found: Using public rate limits for ${endpointPath}`, WARN);
+    }
   }
 
   const fullUrl = `${baseUrl}${endpointPath}?${params.toString()}`;

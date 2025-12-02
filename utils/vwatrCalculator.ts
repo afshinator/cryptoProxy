@@ -9,18 +9,10 @@
  * VWATR Formula:
  * VWATR = Sum(True Range * Volume) / Sum(Volume) over N periods
  *
- * Key Steps:
- * 1. Calculate True Range (TR) for each period:
- * TR = Max(High - Low, |High - Previous Close|, |Low - Previous Close|)
- * 2. Pre-calculate TR * Volume (TRV).
- * 3. Use the latest N periods (specified by the 'period' parameter) to sum TRV and Volume.
- * 4. Divide Sum(TRV) by Sum(Volume) to get the VWATR.
- * 5. Calculate ATR% as (Average TR / Latest Close) * 100 for context.
- *
- * NOTE: This function calculates the metric for a single, specified lookback period.
- * The iteration over multiple periods (7, 14, 30, etc.) is handled by the calling
- * API route (api/volatility.ts), and the expensive TR data pre-calculation is now
- * handled by the calling function for efficiency.
+ * Data Normalization:
+ * When using coarse data (e.g., 4-day candles), the resulting VWATR and ATR values must be
+ * normalized to a daily equivalent using the "square root of time" rule:
+ * VWATR_Daily = VWATR_Interval / sqrt(Interval in Days)
  */
 
 import { log, INFO } from './log.js';
@@ -37,8 +29,8 @@ interface HistoricalOHLCVDataPoint {
 
 // The result structure for a single lookback period.
 interface PeriodResult {
-  period: number;
-  vwatr: number; // The final calculated VWATR value
+  period: number; // This is the period expressed in candles
+  vwatr: number; // The final calculated (and normalized) daily VWATR value
   atrp: number; // The Average True Range Percentage (ATR/Close * 100)
 }
 
@@ -69,23 +61,21 @@ function calculateTrueRange(
 }
 
 /**
- * NEW EXPORTED FUNCTION
  * Pre-calculates True Range (TR) and True Range * Volume (TRV) for the entire history.
- * This function should be called ONLY ONCE per coin history.
  * @param history Array of OHLCV data points (must be sorted oldest to newest)
  * @returns Array of TRData objects
  */
 export function precalculateTRData(history: HistoricalOHLCVDataPoint[]): TRData[] {
   const trData: TRData[] = [];
-  
+
   // We start at index 1 because we need history[i-1] for the previous close
   for (let i = 1; i < history.length; i++) {
     const current = history[i];
     const previousClose = history[i - 1].close;
-    
+
     const trueRange = calculateTrueRange(current, previousClose);
     const volume = current.volume;
-    
+
     trData.push({
       tr: trueRange,
       trv: trueRange * volume,
@@ -94,52 +84,65 @@ export function precalculateTRData(history: HistoricalOHLCVDataPoint[]): TRData[
     });
   }
   return trData;
-} 
+}
 
 
 /**
- * Calculates the Volume-Weighted Average True Range (VWATR) for a single period.
+ * Calculates the Volume-Weighted Average True Range (VWATR) and normalizes it to a daily rate.
  *
- * VWATR = Sum(TR * Volume) / Sum(Volume) over N periods.
+ * VWATR_Interval = Sum(TR * Volume) / Sum(Volume) over N candles.
+ * VWATR_Daily = VWATR_Interval / sqrt(Interval in Days).
  *
  * @param symbol The coin symbol
  * @param trData Pre-calculated True Range data array (TR, TRV, Volume, Close).
- * @param period The single number of days for the lookback calculation
- * @returns PeriodResult containing the VWATR for the requested period, or null if data is insufficient.
+ * @param periodCandles The number of coarse candles used for the lookback calculation (N).
+ * @param candleIntervalDays The interval of each candle in days (e.g., 4.09 days).
+ * @returns PeriodResult containing the normalized daily VWATR for the requested period, or null.
  */
 export function calculateVWATR(
   symbol: string,
-  trData: TRData[], // Now accepts pre-calculated TRData
-  period: number
+  trData: TRData[],
+  periodCandles: number,
+  candleIntervalDays: number
 ): PeriodResult | null {
-  
-  // Check if we have enough TR data points for this specific period
-  if (trData.length < period) {
-    log(`Skipping ${symbol} for period ${period}: insufficient TR data (${trData.length} < ${period}).`, INFO);
+
+  // Check if we have enough TR data points for this specific period in candles
+  if (trData.length < periodCandles) {
+    log(`Skipping ${symbol} for period (candles) ${periodCandles}: insufficient TR data (${trData.length} < ${periodCandles}).`, INFO);
     return null;
   }
 
-  // Use the last 'period' days of TR data
-  const lookbackData = trData.slice(-period);
-  
+  // Use the last 'periodCandles' of TR data
+  const lookbackData = trData.slice(-periodCandles);
+
   // Calculate the Sum of (TR * Volume) and the Sum of (Volume)
   const sumTRV = lookbackData.reduce((sum, item) => sum + item.trv, 0);
   const sumVolume = lookbackData.reduce((sum, item) => sum + item.volume, 0);
 
-  // Calculate VWATR: Sum(TRV) / Sum(Volume)
-  const vwatr = sumVolume > 0 ? sumTRV / sumVolume : 0;
-  
-  // Calculate ATR%
-  const averageTR = lookbackData.reduce((sum, item) => sum + item.tr, 0) / lookbackData.length;
+  // 1. Calculate the raw VWATR for the coarse interval
+  const rawIntervalVWATR = sumVolume > 0 ? sumTRV / sumVolume : 0;
+
+  // 2. Normalize the VWATR to a daily equivalent using the square root of time rule.
+  const normalizationFactor = Math.sqrt(candleIntervalDays);
+  const finalVWATR = rawIntervalVWATR / normalizationFactor;
+
+
+  // Calculate ATR% (This needs normalization too)
+  const averageTR_Interval = lookbackData.reduce((sum, item) => sum + item.tr, 0) / lookbackData.length;
+  // Normalize ATR to a daily rate
+  const averageTR_Daily = averageTR_Interval / normalizationFactor;
+
   const latestClose = lookbackData[lookbackData.length - 1].close;
-  
-  const atrp = latestClose > 0 ? (averageTR / latestClose) * 100 : 0;
-  
-  log(`Calculated VWATR (P=${period}) for ${symbol}: ${vwatr.toFixed(4)}`, INFO);
+
+  // ATR% is (Normalized Daily ATR / Latest Close) * 100
+  const atrp = latestClose > 0 ? (averageTR_Daily / latestClose) * 100 : 0;
+
+  log(`Calculated Normalized Daily VWATR (P=${periodCandles} candles, I=${candleIntervalDays.toFixed(2)} days) for ${symbol}: ${finalVWATR.toFixed(4)}`, INFO);
 
   return {
-    period,
-    vwatr,
+    // We return the period in candles here, but the calling API translates it back to days for the final response metadata.
+    period: periodCandles,
+    vwatr: finalVWATR,
     atrp,
   };
 }

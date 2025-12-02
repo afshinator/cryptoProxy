@@ -2,9 +2,12 @@
 /**
  * Superstars Portfolio Historical Market Data Fetcher
  * 
- * This script fetches 90 days of historical OHLCV (Open, High, Low, Close, Volume) data
+ * This script fetches 30 days of historical OHLCV (Open, High, Low, Close, Volume) data
  * for cryptocurrencies from the "Superstars" portfolio defined in SeedCoinLists.ts
  * and saves each coin's data to a separate JSON file.
+ * 
+ * NOTE: Using 30 days ensures daily granularity. CoinGecko's OHLC endpoint uses
+ * 4-day intervals for requests > 30 days, which is less accurate for VWATR calculations.
  * 
  * This data will be used to seed the database with historical market volatility data,
  * and also used to calculate current volatility.
@@ -40,9 +43,11 @@ import {
 } from '../utils/volatilityHistory.js';
 // Import coingeckoConfig to trigger dotenv loading (same as markets endpoint)
 import '../utils/coingeckoConfig.js';
+import { join } from 'path';
 
 // Configuration
-const OUTPUT_DIR = 'data/coin-history';
+// Use absolute path from project root to ensure consistency
+const OUTPUT_DIR = join(process.cwd(), 'data', 'coin-history');
 
 // Re-export for tests
 export { formatDate, fetchCoinData };

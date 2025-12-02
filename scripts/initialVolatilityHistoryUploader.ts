@@ -45,9 +45,10 @@ interface HistoricalOHLCVDataPoint {
 const uniqueCoinHistory = new Map<string, HistoricalOHLCVDataPoint[]>();
 
 // --- Configuration: Paths to local data directories ---
+// These paths should match where the fetch scripts save data (project root data/ directory)
 const dataPaths = {
-  superstar: path.join(process.cwd(), 'scripts', 'data', 'coin-history'),
-  top20: path.join(process.cwd(), 'scripts', 'data', 'top-coins-history'),
+  superstar: path.join(process.cwd(), 'data', 'coin-history'),
+  top20: path.join(process.cwd(), 'data', 'top-coins-history'),
 };
 
 // --- Bag Definitions (Dynamically populated during normalization) ---
@@ -89,13 +90,26 @@ function loadAndNormalizeData() {
             continue;
         }
 
+        // Calculate date range for validation
+        const firstDate = new Date(rawData[0].time).toISOString().split('T')[0];
+        const lastDate = new Date(rawData[rawData.length - 1].time).toISOString().split('T')[0];
+        const daysSpan = Math.round((rawData[rawData.length - 1].time - rawData[0].time) / (1000 * 60 * 60 * 24));
+        
+        // Validate data count - expect around 30 days (daily granularity)
+        const EXPECTED_DAYS = 30;
+        if (rawData.length < EXPECTED_DAYS * 0.5) {
+          log(`⚠️ WARNING: ${coinSymbol} has only ${rawData.length} data points (${daysSpan} days span). Expected ~${EXPECTED_DAYS} days. File: ${file}`, WARN);
+        } else if (rawData.length < EXPECTED_DAYS * 0.8) {
+          log(`⚠️ WARNING: ${coinSymbol} has ${rawData.length} data points (${daysSpan} days span), less than expected ~${EXPECTED_DAYS} days. File: ${file}`, WARN);
+        }
+
         // 1. Add symbol to the current bag tracking set
         currentBagSet.add(coinSymbol);
 
         // 2. Normalize: Store the history only once per unique coin symbol
         if (!uniqueCoinHistory.has(coinSymbol)) {
           uniqueCoinHistory.set(coinSymbol, rawData);
-          log(`Normalized history loaded for: ${coinSymbol} (${rawData.length} records)`);
+          log(`✅ Normalized history loaded for: ${coinSymbol} (${rawData.length} records, ${firstDate} to ${lastDate}, ${daysSpan} days span)`);
         }
 
       } catch (e) {
@@ -110,6 +124,21 @@ function loadAndNormalizeData() {
 
   log(`Superstar Bag symbols detected: [${superstarBagSymbols.join(', ')}]`, INFO);
   log(`Top 20+ Bag symbols detected: [${top20BagSymbols.join(', ')}]`, INFO);
+  
+  // Summary of data quality
+  const EXPECTED_DAYS = 30; // Daily granularity (30 days = ~30 data points)
+  const coinsWithInsufficientData: string[] = [];
+  uniqueCoinHistory.forEach((data, symbol) => {
+    if (data.length < EXPECTED_DAYS * 0.5) {
+      coinsWithInsufficientData.push(symbol);
+    }
+  });
+  
+  if (coinsWithInsufficientData.length > 0) {
+    log(`⚠️ WARNING: ${coinsWithInsufficientData.length} coins have less than 50% of expected data (${EXPECTED_DAYS} days): ${coinsWithInsufficientData.join(', ')}`, WARN);
+  } else {
+    log(`✅ All ${uniqueCoinHistory.size} coins have sufficient data (>= ${Math.floor(EXPECTED_DAYS * 0.5)} days)`, INFO);
+  }
 }
 
 /**

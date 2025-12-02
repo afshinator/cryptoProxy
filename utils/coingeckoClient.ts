@@ -1,6 +1,6 @@
 // Filename: utils/coingeckoClient.ts
 
-import { log, ERR } from './log.js';
+import { log, ERR, LOG } from './log.js';
 import { buildCoingeckoUrl } from './coingeckoConfig.js';
 
 /**
@@ -31,6 +31,12 @@ export async function fetchFromCoinGecko<T = any>(
 ): Promise<T> {
   try {
     const url = buildCoingeckoUrl(endpointPath, params);
+    
+    // Log the URL (but mask the API key for security)
+    const urlForLogging = url.replace(/x_cg_demo_api_key=[^&]+/, 'x_cg_demo_api_key=***MASKED***');
+    const hasApiKey = url.includes('x_cg_demo_api_key=');
+    log(`  Making request to: ${urlForLogging}`, LOG);
+    log(`  API key included: ${hasApiKey ? '✅ YES' : '❌ NO'}`, LOG);
 
     const response = await fetch(url, {
       headers: {
@@ -38,8 +44,20 @@ export async function fetchFromCoinGecko<T = any>(
       },
     });
 
+    // Log response status and headers
+    log(`  Response status: ${response.status} ${response.statusText}`, LOG);
+    const rateLimitRemaining = response.headers.get('x-ratelimit-remaining');
+    const rateLimitReset = response.headers.get('x-ratelimit-reset');
+    if (rateLimitRemaining) {
+      log(`  Rate limit remaining: ${rateLimitRemaining}`, LOG);
+    }
+    if (rateLimitReset) {
+      log(`  Rate limit resets at: ${new Date(parseInt(rateLimitReset) * 1000).toISOString()}`, LOG);
+    }
+
     if (!response.ok) {
       const errorText = await response.text();
+      log(`  ❌ API Error Response: ${errorText.substring(0, 200)}`, ERR);
       throw new CoinGeckoApiError(
         response.status,
         `CoinGecko API responded with status ${response.status}`,
@@ -48,6 +66,27 @@ export async function fetchFromCoinGecko<T = any>(
     }
 
     const data = await response.json();
+    
+    // Log data structure info for OHLC endpoint
+    if (endpointPath.includes('/ohlc') && Array.isArray(data)) {
+      log(`  OHLC Response: Array with ${data.length} items`, LOG);
+      if (data.length > 0) {
+        const firstCandle = data[0];
+        const lastCandle = data[data.length - 1];
+        if (Array.isArray(firstCandle) && firstCandle.length >= 5) {
+          const firstDate = new Date(firstCandle[0]).toISOString().split('T')[0];
+          const lastDate = new Date(lastCandle[0]).toISOString().split('T')[0];
+          log(`  OHLC Date range in response: ${firstDate} to ${lastDate}`, LOG);
+          // Check if candles are evenly spaced
+          if (data.length >= 2) {
+            const timeDiff1 = data[1][0] - data[0][0];
+            const timeDiff2 = data.length >= 3 ? data[2][0] - data[1][0] : timeDiff1;
+            log(`  OHLC Time intervals: ${Math.round(timeDiff1 / (1000 * 60 * 60))}h, ${Math.round(timeDiff2 / (1000 * 60 * 60))}h`, LOG);
+          }
+        }
+      }
+    }
+
     return data as T;
   } catch (error) {
     if (error instanceof CoinGeckoApiError) {

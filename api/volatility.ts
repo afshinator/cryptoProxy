@@ -5,29 +5,26 @@
  * This Vercel Serverless function serves as the central endpoint for calculating
  * various volatility metrics (like VWATR) based on historical data stored in Vercel Blob.
  *
- * FIX APPLIED: Uses list() for robust latest-blob lookup by filtering on filename
- * prefix and sorting by 'uploadedAt' timestamp (most recent first) to handle hash suffixes.
+ * Data Adaptability: This endpoint handles historical data with coarse, variable granularity
+ * (e.g., multi-day candles). It calculates the actual candle interval (days per candle),
+ * converts the requested lookback periods (in days) into the required number of candles,
+ * and passes the candle interval to the utility function for final normalization to a
+ * daily VWATR equivalent.
  *
  * Query Parameters:
- * - type (string, optional): The type of volatility metric to calculate.
- * - Default: 'vwatr'
- * - Supported: ['vwatr'] (Designed for future expansion, e.g., 'current_atr')
- * - bag (string, optional): Specifies the set of coins to process.
- * - Default: 'top20_bag' (Updated to reflect broader market volatility)
- * - Uses symbols from the 'bag_manifest.json' file.
+ * - type (string, optional): The type of volatility metric to calculate. Default: 'vwatr'.
+ * - bag (string, optional): Specifies the set of coins to process. Default: 'top20_bag'.
  * - periods (string, optional, relevant only for type=vwatr): Comma-separated list of lookback days.
- * - Example: '7,30,90'
- * - Default: [7, 14, 30, 60, 90]
  *
  * Output:
- * - JSON response containing the calculated metrics (VWATR, ATR%) for each coin
+ * - JSON response containing the calculated metrics (normalized daily VWATR, ATR%) for each coin
  * in the specified bag, broken down by the requested lookback periods.
  */
 
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { list } from '@vercel/blob';
 import {
-  calculateVWATR,
+  calculateVWATR, // Requires 4 arguments: (symbol, trData, periodCandles, candleIntervalDays)
   precalculateTRData,
   TRData // <-- Imported for type checking from utility
 } from '../utils/vwatrCalculator.js';
@@ -62,7 +59,8 @@ const DEFAULT_BAG = 'top20_bag';
 const VOLATILITY_TYPE_VWATR = 'vwatr';
 const SUPPORTED_TYPES = [VOLATILITY_TYPE_VWATR];
 // Default specific periods if none are passed in the query
-const DEFAULT_VWATR_PERIODS = [7, 14, 30, 60, 90];
+// Note: With 30-day data fetch, periods > 30 days may have limited data
+const DEFAULT_VWATR_PERIODS = [7, 14, 30];
 // ---------------------
 
 /**
@@ -114,7 +112,7 @@ async function findLatestBlob(prefix: string, token: string | undefined): Promis
  * Parses the 'periods' query parameter (e.g., "7,30,90") into an array of positive integers.
  * Defaults to DEFAULT_VWATR_PERIODS if the query parameter is missing or invalid.
  * @param queryPeriods The value of req.query.periods
- * @returns Array of integer periods
+ * @returns Array of integer periods in DAYS
  */
 function parsePeriods(queryPeriods: string | string[] | undefined): number[] {
   if (!queryPeriods) {
@@ -162,11 +160,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // --- VWATR Calculation Logic ---
     if (volatilityType === VOLATILITY_TYPE_VWATR) {
 
-      // 3. Determine which periods to calculate based on query parameter
-      const periodsToCalculate = parsePeriods(req.query.periods);
+      // 3. Determine which periods to calculate (in days)
+      const periodsToCalculateDays = parsePeriods(req.query.periods);
 
       // Check if we got any valid periods (should default if not)
-      if (periodsToCalculate.length === 0) {
+      if (periodsToCalculateDays.length === 0) {
         return res.status(400).json({ error: 'Invalid or empty period list provided for VWATR calculation.' });
       }
 
@@ -188,11 +186,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.status(404).json({ error: `Bag '${bagName}' not found or is empty in manifest.` });
       }
 
-      log(`Found ${targetSymbols.length} coins in ${bagName}. Starting VWATR calculation for periods: ${periodsToCalculate.join(', ')}`, LOG);
+      log(`Found ${targetSymbols.length} coins in ${bagName}. Starting VWATR calculation for periods: ${periodsToCalculateDays.join(', ')}`, LOG);
 
-      // We determine the longest lookback period needed to properly check data length
-      const maxPeriodRequired = Math.max(...periodsToCalculate);
-      // TR data calculation requires P days + 1 day for the prior close, so P days of TR data.
+      // Determine the longest requested period (in days) to estimate the candle interval
+      // This assumes the historical data was fetched for this max period.
+      const maxPeriodDays = Math.max(...periodsToCalculateDays);
 
       const calculationPromises = targetSymbols.map(async (symbol) => {
         const historyFileName = `${symbol}_history.json`;
@@ -209,31 +207,47 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           const historyResponse = await fetch(historyBlob.url);
           const history = await historyResponse.json() as HistoricalOHLCVDataPoint[];
 
-          // Check for insufficient data early to avoid unnecessary processing
-          // For period P, we need P days of TR data, which requires (P + 1) days of OHLCV history
-          // (because TR calculation starts at index 1, so history.length - 1 = TR entries)
-          if (history.length < maxPeriodRequired + 1) {
-            log(`Skipping all calculations for ${symbol}: History has only ${history.length} days. Need at least ${maxPeriodRequired + 1} days for period ${maxPeriodRequired}.`, WARN);
+          // 6. Pre-calculate TR/TRV data and determine the actual candle interval
+          // trData will have (history.length - 1) entries (candles)
+          const trData: TRData[] = precalculateTRData(history);
+          const trDataLength = trData.length;
+
+          // If there's no data, or only 1 point, skip.
+          if (trDataLength < 1) {
+            log(`Skipping ${symbol}: Only ${history.length} OHLCV entries found, insufficient for any TR calculation.`, WARN);
             return { symbol, results: [] };
           }
 
+          // CRITICAL STEP: Calculate the actual average candle interval in days from timestamps.
+          // This is more accurate than assuming the data spans exactly maxPeriodDays
+          const firstTimestamp = history[0].time;
+          const lastTimestamp = history[history.length - 1].time;
+          const actualSpanMs = lastTimestamp - firstTimestamp;
+          const actualSpanDays = actualSpanMs / (1000 * 60 * 60 * 24);
+          
+          // Calculate interval: span divided by number of intervals (candles - 1)
+          // For n candles, there are (n-1) intervals between them
+          const candleIntervalDays = trDataLength > 1 
+            ? actualSpanDays / (trDataLength - 1)
+            : actualSpanDays; // Fallback if only 1 candle
 
-          // 6. OPTIMIZATION: Pre-calculate TR/TRV data ONCE per coin history.
-          // trData will have (history.length - 1) entries
-          const trData: TRData[] = precalculateTRData(history);
+          log(`Processing ${symbol}: History has ${trDataLength} TR candles spanning ${actualSpanDays.toFixed(1)} days at ~${candleIntervalDays.toFixed(2)} days/candle interval.`, LOG);
 
+          // 7. Run the VWATR Calculation, converting requested days into candles.
+          const results = periodsToCalculateDays
+            .map(periodDays => {
+              // Convert the requested lookback period (in days) to a period in coarse candles.
+              // We use Math.round as the interval is usually not a clean integer (e.g., 4.09).
+              const periodCandles = Math.round(periodDays / candleIntervalDays);
 
-          // 7. Run the VWATR Calculation for each requested period, reusing trData.
-          const results = periodsToCalculate
-            .map(period => {
-              // Ensure trData has enough points (TR data array length must be >= period)
-              if (trData.length < period) {
-                // This is a safety check. The maxPeriodRequired check above should catch this for the largest period.
-                log(`  [${symbol}] Skipping period ${period} - Insufficient TR data (${trData.length} < ${period}).`, WARN);
+              // Check if the required number of candles exceeds available data or is too small.
+              if (periodCandles > trDataLength || periodCandles < 1) {
+                log(`  [${symbol}] Skipping ${periodDays} days. Needs ${periodCandles} candles, but only ${trDataLength} available.`, WARN);
                 return null;
               }
-              // Call the external utility function
-              return calculateVWATR(symbol, trData, period);
+
+              // The utility function requires 4 arguments for the normalization calculation.
+              return calculateVWATR(symbol, trData, periodCandles, candleIntervalDays);
             })
             .filter((result): result is NonNullable<typeof result> => result !== null);
 
@@ -257,7 +271,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(200).json({
         type: VOLATILITY_TYPE_VWATR,
         bag: bagName,
-        periods: periodsToCalculate, // Include periods in the response
+        periods: periodsToCalculateDays, // Include originally requested periods in the response
         timestamp: Date.now(),
         data: results,
       });
