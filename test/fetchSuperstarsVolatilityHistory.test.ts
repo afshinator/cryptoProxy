@@ -67,36 +67,110 @@ describe('fetchSuperstarsVolatilityHistory Tests', () => {
   });
 
   describe('fetchCoinData', () => {
-    it('should call fetchFromCoinGecko with correct parameters', async () => {
-      const mockData: any = {
-        prices: [[1000000, 45000]],
-        market_caps: [[1000000, 850000000000]],
-        total_volumes: [[1000000, 20000000000]]
+    it('should call both OHLC and market_chart endpoints and merge data', async () => {
+      const startTime = Date.UTC(2024, 0, 1, 12, 0, 0); // Jan 1, 2024
+      const endTime = Date.UTC(2024, 0, 2, 12, 0, 0); // Jan 2, 2024
+      
+      // Mock OHLC data: [timestamp, open, high, low, close]
+      const mockOhlcData: [number, number, number, number, number][] = [
+        [startTime, 44000, 46000, 43000, 45000],
+        [endTime, 45000, 47000, 44000, 46000]
+      ];
+      
+      // Mock market chart data
+      const mockMarketChartData = {
+        prices: [[startTime, 45000], [endTime, 46000]],
+        market_caps: [[startTime, 850000000000], [endTime, 870000000000]],
+        total_volumes: [[startTime, 20000000000], [endTime, 22000000000]]
       };
 
-      vi.mocked(fetchFromCoinGecko).mockResolvedValue(mockData);
+      // Mock both API calls - they're called in parallel
+      vi.mocked(fetchFromCoinGecko)
+        .mockResolvedValueOnce(mockOhlcData) // First call: OHLC
+        .mockResolvedValueOnce(mockMarketChartData); // Second call: market_chart
 
       const result = await fetchCoinData('bitcoin');
 
+      // Verify both endpoints were called
+      expect(fetchFromCoinGecko).toHaveBeenCalledTimes(2);
+      
+      // Check OHLC endpoint call
+      expect(fetchFromCoinGecko).toHaveBeenCalledWith(
+        '/coins/bitcoin/ohlc',
+        expect.any(URLSearchParams)
+      );
+      
+      // Check market_chart endpoint call
       expect(fetchFromCoinGecko).toHaveBeenCalledWith(
         '/coins/bitcoin/market_chart',
         expect.any(URLSearchParams)
       );
 
-      const params = vi.mocked(fetchFromCoinGecko).mock.calls[0][1] as URLSearchParams;
-      expect(params.get('vs_currency')).toBe('usd');
-      expect(params.get('days')).toBe('90');
-      expect(params.get('interval')).toBe('daily');
+      // Verify market_chart params (find by endpoint)
+      const marketChartCall = vi.mocked(fetchFromCoinGecko).mock.calls.find(
+        call => call[0] === '/coins/bitcoin/market_chart'
+      );
+      expect(marketChartCall).toBeDefined();
+      const marketChartParams = marketChartCall![1] as URLSearchParams;
+      expect(marketChartParams.get('vs_currency')).toBe('usd');
+      expect(marketChartParams.get('days')).toBe('90');
+      expect(marketChartParams.get('interval')).toBe('daily');
 
-      expect(result).toEqual(mockData);
+      // Verify OHLC params (find by endpoint)
+      const ohlcCall = vi.mocked(fetchFromCoinGecko).mock.calls.find(
+        call => call[0] === '/coins/bitcoin/ohlc'
+      );
+      expect(ohlcCall).toBeDefined();
+      const ohlcParams = ohlcCall![1] as URLSearchParams;
+      expect(ohlcParams.get('vs_currency')).toBe('usd');
+      expect(ohlcParams.get('days')).toBe('90');
+
+      // Verify merged result structure
+      expect(result).toHaveLength(2);
+      expect(result[0]).toEqual({
+        time: startTime,
+        open: 44000,
+        high: 46000,
+        low: 43000,
+        close: 45000,
+        volume: 20000000000
+      });
+      expect(result[1]).toEqual({
+        time: endTime,
+        open: 45000,
+        high: 47000,
+        low: 44000,
+        close: 46000,
+        volume: 22000000000
+      });
     });
 
-    it('should throw CoinGeckoApiError when API fails', async () => {
+    it('should throw CoinGeckoApiError when OHLC API fails', async () => {
       const apiError = new CoinGeckoApiError(429, 'Rate limit exceeded');
-      vi.mocked(fetchFromCoinGecko).mockRejectedValue(apiError);
+      // Mock both calls - OHLC fails, market_chart is also mocked (though Promise.all will reject on first error)
+      vi.mocked(fetchFromCoinGecko)
+        .mockRejectedValueOnce(apiError) // OHLC fails
+        .mockResolvedValueOnce({ prices: [], market_caps: [], total_volumes: [] }); // market_chart (won't be used)
 
-      await expect(fetchCoinData('bitcoin')).rejects.toThrow(CoinGeckoApiError);
-      await expect(fetchCoinData('bitcoin')).rejects.toThrow('Rate limit exceeded');
+      const resultPromise = fetchCoinData('bitcoin');
+      await expect(resultPromise).rejects.toThrow(CoinGeckoApiError);
+      await expect(resultPromise).rejects.toThrow('Rate limit exceeded');
+    });
+
+    it('should throw CoinGeckoApiError when market_chart API fails', async () => {
+      const mockOhlcData: [number, number, number, number, number][] = [
+        [Date.UTC(2024, 0, 1, 12, 0, 0), 44000, 46000, 43000, 45000]
+      ];
+      const apiError = new CoinGeckoApiError(429, 'Rate limit exceeded');
+      
+      // Mock both calls - OHLC succeeds, market_chart fails
+      vi.mocked(fetchFromCoinGecko)
+        .mockResolvedValueOnce(mockOhlcData)
+        .mockRejectedValueOnce(apiError);
+
+      const resultPromise = fetchCoinData('bitcoin');
+      await expect(resultPromise).rejects.toThrow(CoinGeckoApiError);
+      await expect(resultPromise).rejects.toThrow('Rate limit exceeded');
     });
 
     it('should handle network errors', async () => {
@@ -107,61 +181,80 @@ describe('fetchSuperstarsVolatilityHistory Tests', () => {
   });
 
   describe('saveToFile', () => {
-    it('should save data to file with correct filename format', async () => {
+    it('should save OHLCV data to file with correct filename format', async () => {
       const startTime = Date.UTC(2024, 0, 1, 12, 0, 0); // Jan 1, 2024
       const endTime = Date.UTC(2024, 2, 31, 12, 0, 0); // Mar 31, 2024
-      const mockData = {
-        prices: [
-          [startTime, 45000],
-          [endTime, 50000]
-        ] as [number, number][],
-        market_caps: [
-          [startTime, 850000000000],
-          [endTime, 950000000000]
-        ] as [number, number][],
-        total_volumes: [
-          [startTime, 20000000000],
-          [endTime, 25000000000]
-        ] as [number, number][]
-      };
+      const mockData = [
+        {
+          time: startTime,
+          open: 44000,
+          high: 46000,
+          low: 43000,
+          close: 45000,
+          volume: 20000000000
+        },
+        {
+          time: endTime,
+          open: 49000,
+          high: 51000,
+          low: 48000,
+          close: 50000,
+          volume: 25000000000
+        }
+      ];
 
       await saveToFile('bitcoin', mockData);
 
-      expect(fs.mkdir).toHaveBeenCalledWith('coin-history', { recursive: true });
+      expect(fs.mkdir).toHaveBeenCalledWith('data/coin-history', { recursive: true });
       expect(fs.writeFile).toHaveBeenCalled();
       const callArgs = vi.mocked(fs.writeFile).mock.calls[0];
-      expect(callArgs[0]).toBe('coin-history/bitcoin-01-01-24-03-31-24.json');
+      expect(callArgs[0]).toBe('data/coin-history/bitcoin-01-01-24-03-31-24.json');
       expect(callArgs[1]).toBe(JSON.stringify(mockData, null, 2));
     });
 
     it('should format filename correctly for different coins', async () => {
       const startTime = Date.UTC(2024, 5, 15, 12, 0, 0); // Jun 15, 2024
       const endTime = Date.UTC(2024, 8, 15, 12, 0, 0); // Sep 15, 2024
-      const mockData = {
-        prices: [
-          [startTime, 3000],
-          [endTime, 3500]
-        ] as [number, number][],
-        market_caps: [] as [number, number][],
-        total_volumes: [] as [number, number][]
-      };
+      const mockData = [
+        {
+          time: startTime,
+          open: 2900,
+          high: 3100,
+          low: 2800,
+          close: 3000,
+          volume: 15000000000
+        },
+        {
+          time: endTime,
+          open: 3400,
+          high: 3600,
+          low: 3300,
+          close: 3500,
+          volume: 18000000000
+        }
+      ];
 
       await saveToFile('ethereum', mockData);
 
-      expect(fs.mkdir).toHaveBeenCalledWith('coin-history', { recursive: true });
+      expect(fs.mkdir).toHaveBeenCalledWith('data/coin-history', { recursive: true });
       expect(fs.writeFile).toHaveBeenCalled();
       const lastCallIndex = vi.mocked(fs.writeFile).mock.calls.length - 1;
       const callArgs = vi.mocked(fs.writeFile).mock.calls[lastCallIndex];
-      expect(callArgs[0]).toBe('coin-history/ethereum-06-15-24-09-15-24.json');
+      expect(callArgs[0]).toBe('data/coin-history/ethereum-06-15-24-09-15-24.json');
       expect(callArgs[1]).toBe(JSON.stringify(mockData, null, 2));
     });
 
     it('should handle file write errors', async () => {
-      const mockData = {
-        prices: [[1000000, 45000]] as [number, number][],
-        market_caps: [] as [number, number][],
-        total_volumes: [] as [number, number][]
-      };
+      const mockData = [
+        {
+          time: Date.UTC(2024, 0, 1, 12, 0, 0),
+          open: 44000,
+          high: 46000,
+          low: 43000,
+          close: 45000,
+          volume: 20000000000
+        }
+      ];
 
       const writeError = new Error('Permission denied');
       vi.mocked(fs.writeFile).mockRejectedValue(writeError);

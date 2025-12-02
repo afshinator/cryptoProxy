@@ -1,6 +1,10 @@
 // Filename: utils/volatilityHistory.ts
 /**
  * Shared utilities for fetching and saving cryptocurrency volatility history data
+ *
+ * 1. /ohlc (to get Open, High, Low, Close)
+ * 2. /market_chart (to get Volume)
+ * The data is then merged into a single OHLCV structure before saving.
  */
 
 import * as fs from 'fs/promises';
@@ -15,12 +19,16 @@ export const DAYS = 90;
 export const INTERVAL = 'daily';
 export const PAUSE_DURATION_MS = 4000;
 
-// Interface for market chart response from CoinGecko
+// Interface for raw market chart response (specifically needed for total_volumes)
 export interface MarketChartResponse {
   prices: [number, number][];
   market_caps: [number, number][];
-  total_volumes: [number, number][];
+  total_volumes: [number, number][]; // [timestamp, volume]
 }
+
+// Interface for raw OHLC response
+export type OhlcResponse = [number, number, number, number, number][]; 
+// [timestamp, open, high, low, close]
 
 // Interface for coin information used in processing
 export interface CoinInfo {
@@ -28,6 +36,17 @@ export interface CoinInfo {
   symbol: string;
   name: string;
 }
+
+// TARGET STRUCTURE: The final, merged OHLCV data point for VWATR calculation
+export interface HistoricalOHLCVDataPoint {
+    time: number;
+    open: number;
+    high: number;
+    low: number;
+    close: number;
+    volume: number;
+}
+
 
 /**
  * Formats a timestamp to MM-DD-YY format
@@ -41,36 +60,97 @@ export function formatDate(timestamp: number): string {
 }
 
 /**
- * Fetches historical market data for a coin from CoinGecko
+ * Fetches historical OHLC (Open, High, Low, Close) data for a coin from CoinGecko
  */
-export async function fetchCoinData(coinId: string): Promise<MarketChartResponse> {
-  const params = new URLSearchParams({
-    vs_currency: VS_CURRENCY,
-    days: String(DAYS),
-    interval: INTERVAL
-  });
+async function fetchOhlcData(coinId: string): Promise<OhlcResponse> {
+    const params = new URLSearchParams({
+        vs_currency: VS_CURRENCY,
+        days: String(DAYS),
+    });
+    const endpoint = `/coins/${coinId}/ohlc`;
+    return await fetchFromCoinGecko<OhlcResponse>(endpoint, params);
+}
 
-  const endpoint = `/coins/${coinId}/market_chart`;
-
-  try {
+/**
+ * Fetches historical market chart data (primarily for Total Volume) for a coin from CoinGecko
+ */
+async function fetchMarketChartData(coinId: string): Promise<MarketChartResponse> {
+    const params = new URLSearchParams({
+        vs_currency: VS_CURRENCY,
+        days: String(DAYS),
+        interval: INTERVAL // 'daily' interval for market chart
+    });
+    const endpoint = `/coins/${coinId}/market_chart`;
     return await fetchFromCoinGecko<MarketChartResponse>(endpoint, params);
-  } catch (error) {
-    // Log the full URL on error for debugging/testing
-    const fullUrl = `${COINGECKO_BASE_URL}${endpoint}?${params.toString()}`;
-    log(`Failed request URL: ${fullUrl}`, ERR);
-    throw error;
-  }
+}
+
+
+/**
+ * Fetches OHLC and Volume data, merges them, and returns the combined OHLCV array.
+ */
+export async function fetchCoinData(coinId: string): Promise<HistoricalOHLCVDataPoint[]> {
+    log(`Fetching OHLC and Volume data for ${coinId}...`);
+    
+    // 1. Fetch OHLC (for Open, High, Low, Close)
+    const ohlcDataPromise = fetchOhlcData(coinId);
+    
+    // 2. Fetch Market Chart (for Volume)
+    const marketChartPromise = fetchMarketChartData(coinId);
+
+    const [ohlc, marketChart] = await Promise.all([ohlcDataPromise, marketChartPromise]);
+    
+    // Index total volumes by timestamp for fast lookup
+    const volumeMap = new Map<number, number>();
+    for (const [timestamp, volume] of marketChart.total_volumes) {
+        // CoinGecko timestamps from /market_chart are often rounded differently than /ohlc.
+        // We round down the timestamp to the nearest day (86400000 ms) for merging reliability.
+        const roundedTimestamp = Math.floor(timestamp / 86400000) * 86400000;
+        volumeMap.set(roundedTimestamp, volume);
+    }
+
+    // 3. Merge OHLC and Volume Data
+    const mergedData: HistoricalOHLCVDataPoint[] = [];
+    
+    ohlc.forEach(candle => {
+        const [timestamp, open, high, low, close] = candle;
+        
+        // Match the OHLC timestamp to the rounded Volume timestamp
+        const roundedTimestamp = Math.floor(timestamp / 86400000) * 86400000;
+        const volume = volumeMap.get(roundedTimestamp) || 0; // Default to 0 if volume is missing
+        
+        if (volume === 0) {
+            log(`Warning: Volume data missing for ${coinId} at timestamp ${timestamp}.`, WARN);
+        }
+
+        mergedData.push({
+            time: timestamp,
+            open,
+            high,
+            low,
+            close,
+            volume,
+        });
+    });
+
+    log(`Successfully merged ${mergedData.length} OHLCV data points.`);
+    return mergedData;
 }
 
 /**
  * Saves market chart data to a JSON file
  * @param coinId - The coin identifier to use in the filename
- * @param data - The market chart data to save
+ * @param data - The OHLCV data to save (now the HistoricalOHLCVDataPoint[])
  * @param outputDir - The directory to save the file in
  */
-export async function saveToFile(coinId: string, data: MarketChartResponse, outputDir: string): Promise<void> {
-  const startDate = formatDate(data.prices[0][0]);
-  const endDate = formatDate(data.prices[data.prices.length - 1][0]);
+export async function saveToFile(coinId: string, data: HistoricalOHLCVDataPoint[], outputDir: string): Promise<void> {
+  if (data.length === 0) {
+    log(`Cannot save file for ${coinId}: data array is empty.`, WARN);
+    return;
+  }
+  
+  const startDate = formatDate(data[0].time);
+  const endDate = formatDate(data[data.length - 1].time);
+  // The filename format remains the same, but the content is the merged array
   const filename = `${coinId}-${startDate}-${endDate}.json`;
   
   // Ensure the output directory exists
@@ -82,6 +162,7 @@ export async function saveToFile(coinId: string, data: MarketChartResponse, outp
   
   // Save file to output directory
   const filePath = join(outputDir, filename);
+  // Save the OHLCV array directly
   await fs.writeFile(filePath, JSON.stringify(data, null, 2));
 }
 
@@ -104,11 +185,18 @@ export async function processCoin(
   try {
     log(`[${index + 1}/${total}] Fetching ${coinSymbol} (${coinName})...`, LOG);
     
+    // fetchCoinData now returns the merged OHLCV array
     const data = await fetchCoinData(coinId);
-    await saveToFile(coinId, data, outputDir);
     
-    log(`✓ ${coinSymbol}: ${data.prices.length} data points saved`, LOG);
-    return true;
+    if (data.length > 0) {
+      await saveToFile(coinId, data, outputDir);
+      log(`✓ ${coinSymbol}: ${data.length} OHLCV data points saved`, LOG);
+      return true;
+    } else {
+      log(`⚠ Skipping ${coinSymbol}: Fetched data was empty.`, WARN);
+      return false;
+    }
+    
   } catch (error) {
     if (error instanceof CoinGeckoApiError) {
       // Don't stop on 404 errors, just log and continue
@@ -142,4 +230,3 @@ export async function processCoins(coins: CoinInfo[], outputDir: string): Promis
     }
   }
 }
-
