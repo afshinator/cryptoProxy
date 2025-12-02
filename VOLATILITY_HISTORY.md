@@ -60,6 +60,95 @@ Fetching scripts (`fetchTopCoinsVolatilityHistory.ts` and `fetchSuperstarsVolati
 
 Scripts are capturing all five required components (Open, High, Low, Close, Volume) for **30 days of daily historical data**. This provides sufficient data for VWATR calculations with daily granularity. **Maximum supported period: 30 days.**
 
+#### API Endpoints and Call Frequency
+
+**CoinGecko API Endpoints Used**:
+
+1. **`GET /coins/markets`** (Initial coin list)
+   - **Purpose**: Fetches the current top N coins by market cap
+   - **Called**: Once per script run (at the start)
+   - **Parameters**: `vs_currency=usd`, `order=market_cap_desc`, `per_page=25`, `page=1`
+   - **Returns**: Array of coin objects with `id`, `symbol`, `name`, `current_price`, `market_cap`, etc.
+
+2. **`GET /coins/{id}/ohlc`** (OHLC data)
+   - **Purpose**: Fetches Open, High, Low, Close prices for the last 30 days
+   - **Called**: Once per coin (in parallel with market_chart)
+   - **Parameters**: `vs_currency=usd`, `days=30`
+   - **Returns**: Array of `[timestamp, open, high, low, close]` tuples
+   - **Granularity**: For ≤30 days, returns 4-hour interval candles (aggregated to daily)
+   - **Rate Limiting**: 4-second pause between coin requests
+
+3. **`GET /coins/{id}/market_chart`** (Volume data)
+   - **Purpose**: Fetches daily volume data for the last 30 days
+   - **Called**: Once per coin (in parallel with ohlc)
+   - **Parameters**: `vs_currency=usd`, `days=30`, `interval=daily`
+   - **Returns**: Object with `prices`, `market_caps`, `total_volumes` arrays
+   - **Used Data**: Only `total_volumes` array `[timestamp, volume]` pairs
+
+**Total API Calls per Script Run**:
+- **Top 20 Coins**: 1 markets call + (20 × 2) = **41 API calls** (20 OHLC + 20 market_chart)
+- **Superstar Coins**: 0 markets call + (N × 2) = **2N API calls** (N OHLC + N market_chart, where N = number of coins in list)
+
+**Rate Limiting**:
+- **Pause Duration**: 4 seconds between each coin's data fetch
+- **With API Key**: Higher rate limits (check CoinGecko documentation)
+- **Without API Key**: Public rate limits apply (typically 10-50 calls/minute)
+
+**Script Execution Frequency**:
+- **Initial Setup**: Run once to seed the database
+- **Maintenance**: Should be run periodically (weekly/monthly) to update the top 20 list and refresh historical data
+- **Manual**: Run on-demand when needed
+
+#### Data Structure and Storage
+
+**Stored Data Format** (`HistoricalOHLCVDataPoint[]`):
+```typescript
+{
+  time: number;        // Unix timestamp (milliseconds), rounded to midnight UTC
+  open: number;        // Opening price for the day (USD)
+  high: number;        // Highest price during the day (USD)
+  low: number;         // Lowest price during the day (USD)
+  close: number;       // Closing price for the day (USD)
+  volume: number;      // Total trading volume for the day (USD)
+}
+```
+
+**Data Characteristics**:
+- **Time Range**: Last 30 days of historical data
+- **Granularity**: Daily candles (aggregated from 4-hour intervals)
+- **Timestamps**: Rounded to midnight UTC for each day
+- **Currency**: All prices in USD
+- **Storage Location**: Vercel Blob storage as JSON files (`{symbol}_history.json`)
+- **Manifest**: `bag_manifest.json` contains lists of coins in each bag (`top20_bag`, `superstar_bag`, `all_coins`)
+
+**Data Processing**:
+1. OHLC data comes as 4-hour candles → aggregated into daily candles
+2. Volume data comes as daily points → matched by timestamp
+3. Final output: ~30 daily OHLCV data points per coin
+
+#### Can I Use This Data for Today's Market Info?
+
+**Short Answer**: **Partially, but with limitations.**
+
+**What You CAN Use**:
+- ✅ **Latest Close Price**: The last data point's `close` price represents the most recent completed trading day's closing price. This is used in ATR% calculations (`atrp = (ATR / latestClose) × 100`).
+- ✅ **Recent Price Trends**: The last 30 days of OHLCV data shows recent price movements and volatility patterns.
+- ✅ **Historical Context**: You can compare current volatility (7-day VWATR) against longer-term trends (30-day VWATR).
+
+**What You CANNOT Use**:
+- ❌ **Real-Time Prices**: The data is historical, not live. The latest data point is from the most recent completed trading day, not the current moment.
+- ❌ **Today's Intraday Data**: If it's currently 2 PM on a trading day, you won't have today's OHLCV data yet (it will be available after the day completes).
+- ❌ **Current Market Cap/Rankings**: The coin list in the manifest reflects the top 20 at the time the script was last run, not the current top 20.
+
+**For Real-Time Market Data**:
+- Use the `/api/markets` endpoint, which calls CoinGecko's `/coins/markets` endpoint and returns current prices, market caps, and rankings.
+- This endpoint is separate from the volatility history system and provides live data.
+
+**Best Practice**:
+- Use volatility history data for **volatility analysis and risk assessment** (VWATR, ATR%)
+- Use the markets endpoint for **current prices and market rankings**
+- Combine both: Use current prices from `/api/markets` with volatility metrics from `/api/volatility` for comprehensive market analysis
+
 ### 2. Data Upload and Availability
 
 `initialVolatilityHistoryUploader.ts` script ensures data is prepared and accessible:
