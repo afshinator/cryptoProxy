@@ -220,6 +220,23 @@
       <div class="endpoint">
         <div class="endpoint-header">
           <span class="method get">GET</span>
+          <span class="path">/api/volatility</span>
+        </div>
+        <div class="description">
+          Calculates volatility metrics (VWATR - Volume-Weighted Average True Range) for cryptocurrency bags based on historical OHLCV data stored in Vercel Blob. Returns VWATR and ATR% for multiple lookback periods.
+        </div>
+        <div class="details">
+          <h4>Query Parameters</h4>
+          <code>type</code> (default: vwatr), <code>bag</code> (default: top20_bag, options: top20_bag, superstar_bag, all_coins), <code>periods</code> (default: 7,14,30,60,90, comma-separated list of days)
+          <h4 style="margin-top: 0.75rem;">Response</h4>
+          <code>{"type": "vwatr", "bag": "top20_bag", "periods": [7,14,30,60,90], "timestamp": 1234567890, "data": [{"symbol": "btc", "results": [{"period": 7, "vwatr": 0.0234, "atrp": 2.34}, ...]}, ...]}</code>
+        </div>
+        <a href="/api/volatility?bag=top20_bag&periods=7,30,90" class="test-link" target="_blank">Test Endpoint →</a>
+      </div>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
           <span class="method post">POST</span>
           <span class="path">/api/blob-example</span>
         </div>
