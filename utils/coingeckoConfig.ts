@@ -2,11 +2,24 @@
 
 import { log, WARN } from './log.js';
 import dotenv from 'dotenv';
+import { join, dirname } from 'path';
+import { fileURLToPath } from 'url';
+
+// Get the directory of this file, then go up to project root
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+// This file is in utils/, so project root is one level up
+const projectRoot = join(__dirname, '..');
 
 // Load environment variables locally using 'dotenv'
 // This block is skipped during Vercel deployment.
-if (process.env.VERCEL_ENV !== 'production' && process.env.NODE_ENV !== 'production') {
-  dotenv.config({ path: '.env.local' });
+if (!process.env.VERCEL_ENV || process.env.VERCEL_ENV !== 'production') {
+  // Use absolute path based on project root (not process.cwd() which can vary)
+  const envPath = join(projectRoot, '.env.local');
+  const result = dotenv.config({ path: envPath });
+  if (result.error) {
+    // Silently fail - env vars might be set another way
+  }
 }
 
 // Retrieve the CoinGecko API Key from the environment

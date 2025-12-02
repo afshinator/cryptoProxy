@@ -1,3 +1,5 @@
+// Filename: constants/SeedCoinLists.ts
+
 // Define the structure for the portfolio object
 export interface Portfolio {
   title: string;
@@ -10,37 +12,36 @@ export interface Portfolio {
 const twwSuperstars: Portfolio = {
   title: "TWW-Superstars",
   coins: {
-    "btc": "Bitcoin",
-    "eth": "Ethereum",
-    "ada": "Cardano",
-    "apt": "Aptos",
-    "atom": "Cosmos",
-    "cro": "Cronos",
-    "fil": "Filecoin",
-    "grt": "The Graph",
-    "hbar": "Hedera",
-    "imx": "ImmutableX",
-    "leo": "UNUS SED LEO",
-    "link": "Chainlink",
-    "near": "NEAR Protocol",
-    "pyth": "Pyth Network",
-    "qnt": "Quant",
-    "sol": "Solana",
-    "stx": "Stacks",
-    "sui": "Sui",
-    "tao": "Bittensor",
-    "theta": "Theta Network",
-    "xdc": "XinFin Network",
-    "xrp": "XRP",
-    "api3": "API3",
-    "aergo": "Aergo",
-    "dent": "DENT",
-    "init": "Initia",
-    "nmr": "Numeraire",
-    "ocean": "Ocean Protocol",
-    "rsr": "Reserve Rights",
-    "ftm": "Fantom",
-
+    "btc": "bitcoin",
+    "eth": "ethereum",
+    "ada": "cardano",
+    "sol": "solana",
+    "xrp": "ripple", // CoinGecko uses 'ripple' for XRP
+    "link": "chainlink",
+    "apt": "aptos",
+    "atom": "cosmos",
+    "cro": "crypto-com-chain", // Cro's ID
+    "fil": "filecoin",
+    "grt": "the-graph",
+    "hbar": "hedera-hashgraph", // HBAR's ID
+    "imx": "immutable-x",
+    "leo": "unus-sed-leo",
+    "near": "near",
+    "pyth": "pyth-network",
+    "qnt": "quant-network", // Quant's ID
+    "stx": "stacks",
+    "sui": "sui",
+    "tao": "bittensor",
+    "theta": "theta-token", // Theta Network's ID
+    "xdc": "xinfin-network",
+    "api3": "api3",
+    "aergo": "aergo",
+    "dent": "dent",
+    "nmr": "numeraire",
+    "ocean": "ocean-protocol",
+    "rsr": "reserve-rights-token", // RSR's ID
+    "ftm": "fantom",
+    "init": "initia",
   },
 };
 

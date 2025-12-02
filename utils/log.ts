@@ -1,4 +1,4 @@
-// log.ts or utils.ts
+// utils/log.ts
 
 // Any log with priority > this number will be suppressed.
 const LOG_THRESHOLD: number = 7;
@@ -28,22 +28,22 @@ export function log(message: string, priority: number = LOG): void {
   
   // Priority 1-2 (ERR, ERR2): Errors (console.error)
   if (priority >= ERR && priority <= ERR2) {
-    console.error(`[P${priority}] ${message}`);
+    console.error(`[P${priority}] ❌ ${message}`);
   } 
   // Priority 3-4 (WARN, WARN2): Warning Logs (console.warn)
   else if (priority >= WARN && priority <= WARN2) {
-    console.warn(`[P${priority}] ${message}`);
+    console.warn(`[P${priority}] ⚠️ ${message}`);
   }
   // Priority 5-6 (LOG, LOG2): Default Logs (console.log)
   else if (priority >= LOG && priority <= LOG2) {
-    console.log(`[P${priority}] ${message}`);
+    console.log(`[P${priority}] ➖ ${message}`);
   }
   // Priority 7-8 (INFO, INFO2): Information Logs (console.info)
   else if (priority >= INFO && priority <= INFO2) {
-    console.info(`[P${priority}] ${message}`);
+    console.info(`[P${priority}] 📌 ${message}`);
   }
   // Handles logs outside the 1-8 range, but below the threshold (e.g., priority 0)
   else {
-    console.warn(`[Invalid Priority ${priority}] ${message}`);
+    console.warn(`[Invalid Priority ${priority}] ❗ ${message}`);
   }
 }
