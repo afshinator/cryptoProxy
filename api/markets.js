@@ -1,9 +1,10 @@
+// Filename: api/markets.js
 /**
  * Markets endpoint that mirrors CoinGecko's /coins/markets endpoint
  * Supports query parameters: vs_currency, order, per_page, page, sparkline, price_change_percentage
  */
 import { log, ERR } from '../utils/log.ts';
-import { COINGECKO_MARKETS_ENDPOINT } from '../constants/api.ts';
+import { buildCoingeckoUrl } from '../utils/coingeckoConfig.js';
 
 export default async function handler(req, res) {
   // Only allow GET requests
@@ -25,7 +26,7 @@ export default async function handler(req, res) {
       locale = 'en'
     } = req.query;
 
-    // Build the CoinGecko API URL
+    // Build the CoinGecko API URL parameters
     const params = new URLSearchParams();
     params.append('vs_currency', String(vs_currency));
     params.append('order', String(order));
@@ -44,8 +45,9 @@ export default async function handler(req, res) {
       params.append('category', String(category));
     }
 
-    const url = `${COINGECKO_MARKETS_ENDPOINT}?${params.toString()}`;
-
+    // Use the factored utility to get the full URL with the API key
+    // buildCoingeckoUrl expects just the path, not the full URL
+    const url = buildCoingeckoUrl('/coins/markets', params);
     // Fetch data from CoinGecko API
     const response = await fetch(url, {
       headers: {
@@ -74,4 +76,3 @@ export default async function handler(req, res) {
     });
   }
 }
-

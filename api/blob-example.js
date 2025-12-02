@@ -1,3 +1,4 @@
+// api/blob-example.js
 /**
  * Example endpoint demonstrating Vercel Blob storage usage
  * This is optional - remove if you don't need blob storage

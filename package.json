@@ -17,7 +17,8 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
-    "@vercel/blob": "^0.19.0"
+    "@vercel/blob": "^0.19.0",
+    "dotenv": "^17.2.3"
   },
   "devDependencies": {
     "@types/supertest": "^6.0.3",
