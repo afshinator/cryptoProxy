@@ -111,15 +111,27 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
 
       // 4. Fetch the Bag Manifest from Vercel Blob
-      const manifestFileName = 'bag_manifest.json';
-      log(`Fetching manifest: ${manifestFileName}`, LOG);
-      // Use list to find the blob by name, then fetch the content
-      const { blobs } = await list({ prefix: manifestFileName, token: process.env.BLOB_READ_WRITE_TOKEN });
-      const manifestBlob = blobs.find(b => b.pathname === manifestFileName);
-      if (!manifestBlob) {
-        log(`Manifest blob not found: ${manifestFileName}`, ERR);
-        return res.status(404).json({ error: `Manifest file '${manifestFileName}' not found in blob storage.` });
+      // Note: Vercel Blob may append a hash to filenames, so we search by prefix
+      const manifestPrefix = 'bag_manifest';
+      log(`Fetching manifest with prefix: ${manifestPrefix}`, LOG);
+      // Use list to find the blob by prefix (handles hash suffixes)
+      const { blobs } = await list({ prefix: manifestPrefix, token: process.env.BLOB_READ_WRITE_TOKEN });
+      // Filter to manifest files and sort by upload date (most recent first)
+      const manifestBlobs = blobs
+        .filter(b => b.pathname.startsWith(manifestPrefix) && b.pathname.endsWith('.json'))
+        .sort((a, b) => {
+          const dateA = a.uploadedAt ? new Date(a.uploadedAt).getTime() : 0;
+          const dateB = b.uploadedAt ? new Date(b.uploadedAt).getTime() : 0;
+          return dateB - dateA; // Most recent first
+        });
+      
+      if (manifestBlobs.length === 0) {
+        log(`Manifest blob not found with prefix: ${manifestPrefix}`, ERR);
+        return res.status(404).json({ error: `Manifest file with prefix '${manifestPrefix}' not found in blob storage.` });
       }
+      
+      const manifestBlob = manifestBlobs[0]; // Use the most recent one
+      log(`Found manifest blob: ${manifestBlob.pathname} (uploaded: ${manifestBlob.uploadedAt})`, LOG);
       const manifestResponse = await fetch(manifestBlob.url);
       const manifest = await manifestResponse.json() as BagManifest;
 
@@ -136,11 +148,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         
         try {
           // 5. Fetch the historical OHLCV data for the coin
-          const { blobs: historyBlobs } = await list({ prefix: historyFileName, token: process.env.BLOB_READ_WRITE_TOKEN });
-          const historyBlob = historyBlobs.find(b => b.pathname === historyFileName);
-          if (!historyBlob) {
-            throw new Error(`History file '${historyFileName}' not found in blob storage.`);
+          // Note: Vercel Blob may append a hash to filenames, so we search by prefix
+          const historyPrefix = historyFileName.replace('.json', '');
+          const { blobs: historyBlobs } = await list({ prefix: historyPrefix, token: process.env.BLOB_READ_WRITE_TOKEN });
+          // Filter to history files and sort by upload date (most recent first)
+          const matchingHistoryBlobs = historyBlobs
+            .filter(b => b.pathname.startsWith(historyPrefix) && b.pathname.endsWith('.json'))
+            .sort((a, b) => {
+              const dateA = a.uploadedAt ? new Date(a.uploadedAt).getTime() : 0;
+              const dateB = b.uploadedAt ? new Date(b.uploadedAt).getTime() : 0;
+              return dateB - dateA; // Most recent first
+            });
+          
+          if (matchingHistoryBlobs.length === 0) {
+            throw new Error(`History file with prefix '${historyPrefix}' not found in blob storage.`);
           }
+          
+          const historyBlob = matchingHistoryBlobs[0]; // Use the most recent one
           const historyResponse = await fetch(historyBlob.url);
           const history = await historyResponse.json() as HistoricalOHLCVDataPoint[];
 
