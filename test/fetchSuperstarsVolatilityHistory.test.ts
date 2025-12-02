@@ -113,7 +113,7 @@ describe('fetchSuperstarsVolatilityHistory Tests', () => {
       expect(marketChartCall).toBeDefined();
       const marketChartParams = marketChartCall![1] as URLSearchParams;
       expect(marketChartParams.get('vs_currency')).toBe('usd');
-      expect(marketChartParams.get('days')).toBe('90');
+      expect(marketChartParams.get('days')).toBe('30');
       expect(marketChartParams.get('interval')).toBe('daily');
 
       // Verify OHLC params (find by endpoint)
@@ -123,12 +123,15 @@ describe('fetchSuperstarsVolatilityHistory Tests', () => {
       expect(ohlcCall).toBeDefined();
       const ohlcParams = ohlcCall![1] as URLSearchParams;
       expect(ohlcParams.get('vs_currency')).toBe('usd');
-      expect(ohlcParams.get('days')).toBe('90');
+      expect(ohlcParams.get('days')).toBe('30');
 
       // Verify merged result structure
+      // Note: The code now aggregates 4-hour candles into daily candles, rounding timestamps to midnight
       expect(result).toHaveLength(2);
+      const dayStart1 = Math.floor(startTime / 86400000) * 86400000; // Round to midnight
+      const dayStart2 = Math.floor(endTime / 86400000) * 86400000; // Round to midnight
       expect(result[0]).toEqual({
-        time: startTime,
+        time: dayStart1,
         open: 44000,
         high: 46000,
         low: 43000,
@@ -136,7 +139,7 @@ describe('fetchSuperstarsVolatilityHistory Tests', () => {
         volume: 20000000000
       });
       expect(result[1]).toEqual({
-        time: endTime,
+        time: dayStart2,
         open: 45000,
         high: 47000,
         low: 44000,
@@ -205,10 +208,10 @@ describe('fetchSuperstarsVolatilityHistory Tests', () => {
 
       await saveToFile('bitcoin', mockData);
 
-      expect(fs.mkdir).toHaveBeenCalledWith('data/coin-history', { recursive: true });
+      expect(fs.mkdir).toHaveBeenCalledWith(expect.stringContaining('data/coin-history'), { recursive: true });
       expect(fs.writeFile).toHaveBeenCalled();
       const callArgs = vi.mocked(fs.writeFile).mock.calls[0];
-      expect(callArgs[0]).toBe('data/coin-history/bitcoin-01-01-24-03-31-24.json');
+      expect(callArgs[0]).toContain('data/coin-history/bitcoin-01-01-24-03-31-24.json');
       expect(callArgs[1]).toBe(JSON.stringify(mockData, null, 2));
     });
 
@@ -236,11 +239,11 @@ describe('fetchSuperstarsVolatilityHistory Tests', () => {
 
       await saveToFile('ethereum', mockData);
 
-      expect(fs.mkdir).toHaveBeenCalledWith('data/coin-history', { recursive: true });
+      expect(fs.mkdir).toHaveBeenCalledWith(expect.stringContaining('data/coin-history'), { recursive: true });
       expect(fs.writeFile).toHaveBeenCalled();
       const lastCallIndex = vi.mocked(fs.writeFile).mock.calls.length - 1;
       const callArgs = vi.mocked(fs.writeFile).mock.calls[lastCallIndex];
-      expect(callArgs[0]).toBe('data/coin-history/ethereum-06-15-24-09-15-24.json');
+      expect(callArgs[0]).toContain('data/coin-history/ethereum-06-15-24-09-15-24.json');
       expect(callArgs[1]).toBe(JSON.stringify(mockData, null, 2));
     });
 

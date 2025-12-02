@@ -47,6 +47,13 @@ describe('Index Page Tests', () => {
     expect(htmlContent).toContain('Vercel Blob storage');
   });
 
+  it('should list the volatility endpoint', () => {
+    expect(htmlContent).toContain('/api/volatility');
+    expect(htmlContent).toContain('VWATR');
+    expect(htmlContent).toContain('Volume-Weighted Average True Range');
+    expect(htmlContent).toContain('max: 30 days');
+  });
+
   it('should have GET method badges for endpoints', () => {
     expect(htmlContent).toContain('method get');
     expect(htmlContent).toContain('method post');
@@ -55,10 +62,11 @@ describe('Index Page Tests', () => {
   it('should have test links for all endpoints', () => {
     const testLinkMatches = htmlContent.match(/href="\/api\/[^"]+"/g);
     expect(testLinkMatches).toBeTruthy();
-    expect(testLinkMatches!.length).toBeGreaterThanOrEqual(3);
+    expect(testLinkMatches!.length).toBeGreaterThanOrEqual(4);
     expect(testLinkMatches!.some(link => link.includes('/api/echo-secret'))).toBe(true);
     expect(testLinkMatches!.some(link => link.includes('/api/markets'))).toBe(true);
     expect(testLinkMatches!.some(link => link.includes('/api/blob-example'))).toBe(true);
+    expect(testLinkMatches!.some(link => link.includes('/api/volatility'))).toBe(true);
   });
 
   it('should have proper styling (CSS)', () => {

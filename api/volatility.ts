@@ -97,7 +97,7 @@ async function findLatestBlob(prefix: string, token: string | undefined): Promis
 
     // Select the newest one
     const latestBlob = matchingBlobs[0];
-    log(`Found latest blob for ${prefix}: ${latestBlob.pathname} (URL: ${latestBlob.url.substring(0, 50)}...)`, LOG);
+    // log(`Found latest blob for ${prefix}: ${latestBlob.pathname} (URL: ${latestBlob.url.substring(0, 50)}...)`, LOG);
     return latestBlob;
 
   } catch (e) {
@@ -138,6 +138,28 @@ function parsePeriods(queryPeriods: string | string[] | undefined): { periods: n
     periods: validPeriods.length > 0 ? validPeriods : DEFAULT_VWATR_PERIODS,
     invalidPeriods
   };
+}
+
+// Suppress DEP0169 deprecation warning from dependencies (url.parse() usage in @vercel/blob or its deps)
+// This warning is from a transitive dependency and cannot be fixed in our code.
+// We intercept stderr to filter out this specific deprecation warning message.
+let stderrIntercepted = false;
+if (!stderrIntercepted && process.stderr && typeof process.stderr.write === 'function') {
+  const originalStderrWrite = process.stderr.write.bind(process.stderr);
+  process.stderr.write = function(chunk: any, encoding?: any, callback?: any): boolean {
+    const message = typeof chunk === 'string' ? chunk : chunk.toString();
+    // Filter out DEP0169 deprecation warnings
+    if (message.includes('DEP0169') || message.includes('url.parse()')) {
+      // Suppress this specific deprecation warning
+      if (typeof callback === 'function') {
+        callback();
+      }
+      return true;
+    }
+    // Pass through all other output
+    return originalStderrWrite(chunk, encoding, callback);
+  };
+  stderrIntercepted = true;
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -205,7 +227,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.status(404).json({ error: `Bag '${bagName}' not found or is empty in manifest.` });
       }
 
-      log(`Found ${targetSymbols.length} coins in ${bagName}. Starting VWATR calculation for periods: ${periodsToCalculateDays.join(', ')}`, LOG);
+      // log(`Found ${targetSymbols.length} coins in ${bagName}. Starting VWATR calculation for periods: ${periodsToCalculateDays.join(', ')}`, LOG);
 
       // Determine the longest requested period (in days) to estimate the candle interval
       // This assumes the historical data was fetched for this max period.
@@ -250,7 +272,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             ? actualSpanDays / (trDataLength - 1)
             : actualSpanDays; // Fallback if only 1 candle
 
-          log(`Processing ${symbol}: History has ${trDataLength} TR candles spanning ${actualSpanDays.toFixed(1)} days at ~${candleIntervalDays.toFixed(2)} days/candle interval.`, LOG);
+          // log(`Processing ${symbol}: History has ${trDataLength} TR candles spanning ${actualSpanDays.toFixed(1)} days at ~${candleIntervalDays.toFixed(2)} days/candle interval.`, LOG);
 
           // 7. Run the VWATR Calculation, converting requested days into candles.
           const results = periodsToCalculateDays

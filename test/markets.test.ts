@@ -8,13 +8,40 @@ vi.mock('../utils/log.js', () => ({
   LOG: 5
 }));
 
+// Mock the coingeckoClient
+vi.mock('../utils/coingeckoClient.js', () => ({
+  fetchFromCoinGecko: vi.fn(),
+  CoinGeckoApiError: class extends Error {
+    constructor(public status: number, message: string, public details?: string) {
+      super(message);
+      this.name = 'CoinGeckoApiError';
+    }
+  },
+  handleApiError: vi.fn((error, res, context) => {
+    if (error.status) {
+      res.status(error.status).json({
+        error: 'CoinGecko API error',
+        message: error.message,
+        details: error.details
+      });
+    } else {
+      res.status(500).json({
+        error: `Failed to fetch ${context || ''}`,
+        message: error.message || 'Unknown error'
+      });
+    }
+  })
+}));
+
 import handler from '../api/markets.js';
+import { fetchFromCoinGecko, CoinGeckoApiError } from '../utils/coingeckoClient.js';
 
 describe('Markets Endpoint Tests', () => {
   let mockReq: Partial<VercelRequest>;
   let mockRes: Partial<VercelResponse>;
 
   beforeEach(() => {
+    vi.clearAllMocks();
     // Mock request object
     mockReq = {
       method: 'GET',
@@ -40,7 +67,7 @@ describe('Markets Endpoint Tests', () => {
   });
 
   it('should handle GET requests successfully', async () => {
-    // Mock fetch to return sample market data
+    // Mock fetchFromCoinGecko to return sample market data
     const mockMarketData = [
       {
         id: 'bitcoin',
@@ -51,14 +78,11 @@ describe('Markets Endpoint Tests', () => {
       }
     ];
 
-    global.fetch = vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => mockMarketData
-    }) as any;
+    vi.mocked(fetchFromCoinGecko).mockResolvedValue(mockMarketData);
 
     await handler(mockReq as VercelRequest, mockRes as VercelResponse);
 
-    expect(global.fetch).toHaveBeenCalled();
+    expect(fetchFromCoinGecko).toHaveBeenCalled();
     expect(mockRes.status).toHaveBeenCalledWith(200);
     expect(mockRes.json).toHaveBeenCalledWith(mockMarketData);
   });
@@ -66,19 +90,20 @@ describe('Markets Endpoint Tests', () => {
   it('should use default query parameters', async () => {
     const mockMarketData: any[] = [];
 
-    global.fetch = vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => mockMarketData
-    }) as any;
+    vi.mocked(fetchFromCoinGecko).mockResolvedValue(mockMarketData);
 
     await handler(mockReq as VercelRequest, mockRes as VercelResponse);
 
-    const fetchCall = (global.fetch as any).mock.calls[0][0];
-    expect(fetchCall).toContain('vs_currency=usd');
-    expect(fetchCall).toContain('order=market_cap_desc');
-    expect(fetchCall).toContain('per_page=100');
-    expect(fetchCall).toContain('page=1');
-    expect(fetchCall).toContain('sparkline=false');
+    expect(fetchFromCoinGecko).toHaveBeenCalledWith(
+      '/coins/markets',
+      expect.any(URLSearchParams)
+    );
+    const params = vi.mocked(fetchFromCoinGecko).mock.calls[0][1] as URLSearchParams;
+    expect(params.get('vs_currency')).toBe('usd');
+    expect(params.get('order')).toBe('market_cap_desc');
+    expect(params.get('per_page')).toBe('100');
+    expect(params.get('page')).toBe('1');
+    expect(params.get('sparkline')).toBe('false');
   });
 
   it('should use custom query parameters', async () => {
@@ -90,25 +115,20 @@ describe('Markets Endpoint Tests', () => {
 
     const mockMarketData: any[] = [];
 
-    global.fetch = vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => mockMarketData
-    }) as any;
+    vi.mocked(fetchFromCoinGecko).mockResolvedValue(mockMarketData);
 
     await handler(mockReq as VercelRequest, mockRes as VercelResponse);
 
-    const fetchCall = (global.fetch as any).mock.calls[0][0];
-    expect(fetchCall).toContain('vs_currency=eur');
-    expect(fetchCall).toContain('per_page=10');
-    expect(fetchCall).toContain('page=2');
+    const params = vi.mocked(fetchFromCoinGecko).mock.calls[0][1] as URLSearchParams;
+    expect(params.get('vs_currency')).toBe('eur');
+    expect(params.get('per_page')).toBe('10');
+    expect(params.get('page')).toBe('2');
   });
 
   it('should handle CoinGecko API errors', async () => {
-    global.fetch = vi.fn().mockResolvedValue({
-      ok: false,
-      status: 429,
-      text: async () => 'Rate limit exceeded'
-    }) as any;
+    const apiError = new CoinGeckoApiError(429, 'CoinGecko API responded with status 429', 'Rate limit exceeded');
+    
+    vi.mocked(fetchFromCoinGecko).mockRejectedValue(apiError);
 
     await handler(mockReq as VercelRequest, mockRes as VercelResponse);
 
@@ -121,14 +141,14 @@ describe('Markets Endpoint Tests', () => {
   });
 
   it('should handle network errors', async () => {
-    global.fetch = vi.fn().mockRejectedValue(new Error('Network error')) as any;
+    vi.mocked(fetchFromCoinGecko).mockRejectedValue(new Error('Network error'));
 
     await handler(mockReq as VercelRequest, mockRes as VercelResponse);
 
     expect(mockRes.status).toHaveBeenCalledWith(500);
     expect(mockRes.json).toHaveBeenCalledWith({
       error: 'Failed to fetch markets data',
-      message: 'Failed to fetch from CoinGecko API: Network error'
+      message: 'Network error'
     });
   });
 });

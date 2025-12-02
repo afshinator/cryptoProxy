@@ -137,7 +137,7 @@ export function calculateVWATR(
   // ATR% is (Normalized Daily ATR / Latest Close) * 100
   const atrp = latestClose > 0 ? (averageTR_Daily / latestClose) * 100 : 0;
 
-  log(`Calculated Normalized Daily VWATR (P=${periodCandles} candles, I=${candleIntervalDays.toFixed(2)} days) for ${symbol}: ${finalVWATR.toFixed(4)}`, INFO);
+  // log(`Calculated Normalized Daily VWATR (P=${periodCandles} candles, I=${candleIntervalDays.toFixed(2)} days) for ${symbol}: ${finalVWATR.toFixed(4)}`, INFO);
 
   return {
     // We return the period in candles here, but the calling API translates it back to days for the final response metadata.
