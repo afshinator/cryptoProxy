@@ -2,9 +2,11 @@
 
 import { log, ERR, LOG } from './log.js';
 import { buildCoingeckoUrl } from './coingeckoConfig.js';
+import { fetchJson, HttpError } from './httpClient.js';
 
 /**
  * Error class for CoinGecko API errors
+ * Maintained for backward compatibility with existing code
  */
 export class CoinGeckoApiError extends Error {
   constructor(
@@ -32,42 +34,16 @@ export async function fetchFromCoinGecko<T = any>(
   try {
     const url = buildCoingeckoUrl(endpointPath, params);
     
-    // Log the URL (but mask the API key for security)
-    const urlForLogging = url.replace(/x_cg_demo_api_key=[^&]+/, 'x_cg_demo_api_key=***MASKED***');
+    // Log API key status
     const hasApiKey = url.includes('x_cg_demo_api_key=');
-    log(`  Making request to: ${urlForLogging}`, LOG);
     log(`  API key included: ${hasApiKey ? '✅ YES' : '❌ NO'}`, LOG);
 
-    const response = await fetch(url, {
-      headers: {
-        'Accept': 'application/json',
-      },
+    // Use generic HTTP client for the actual fetch
+    const data = await fetchJson<T>(url, {
+      context: 'CoinGecko API',
     });
-
-    // Log response status and headers
-    log(`  Response status: ${response.status} ${response.statusText}`, LOG);
-    const rateLimitRemaining = response.headers.get('x-ratelimit-remaining');
-    const rateLimitReset = response.headers.get('x-ratelimit-reset');
-    if (rateLimitRemaining) {
-      log(`  Rate limit remaining: ${rateLimitRemaining}`, LOG);
-    }
-    if (rateLimitReset) {
-      log(`  Rate limit resets at: ${new Date(parseInt(rateLimitReset) * 1000).toISOString()}`, LOG);
-    }
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      log(`  ❌ API Error Response: ${errorText.substring(0, 200)}`, ERR);
-      throw new CoinGeckoApiError(
-        response.status,
-        `CoinGecko API responded with status ${response.status}`,
-        errorText
-      );
-    }
-
-    const data = await response.json();
     
-    // Log data structure info for OHLC endpoint
+    // Log data structure info for OHLC endpoint (CoinGecko-specific logging)
     if (endpointPath.includes('/ohlc') && Array.isArray(data)) {
       log(`  OHLC Response: Array with ${data.length} items`, LOG);
       if (data.length > 0) {
@@ -87,15 +63,29 @@ export async function fetchFromCoinGecko<T = any>(
       }
     }
 
-    return data as T;
+    return data;
   } catch (error) {
+    // Convert HttpError to CoinGeckoApiError for backward compatibility
+    if (error instanceof HttpError) {
+      throw new CoinGeckoApiError(
+        error.status,
+        error.message,
+        error.details
+      );
+    }
+    
+    // Re-throw CoinGeckoApiError as-is
     if (error instanceof CoinGeckoApiError) {
       throw error;
     }
 
+    // Handle unexpected errors
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    log(`Error fetching from CoinGecko API (${endpointPath}): ${errorMessage}`, ERR);
-    throw new Error(`Failed to fetch from CoinGecko API: ${errorMessage}`);
+    throw new CoinGeckoApiError(
+      0,
+      `Failed to fetch from CoinGecko API: ${errorMessage}`,
+      errorMessage
+    );
   }
 }
 
@@ -110,6 +100,7 @@ export function handleApiError(
   res: { status: (code: number) => { json: (data: any) => void } },
   context?: string
 ): void {
+  // Handle CoinGeckoApiError (backward compatibility)
   if (error instanceof CoinGeckoApiError) {
     res.status(error.status).json({
       error: 'CoinGecko API error',
@@ -119,6 +110,17 @@ export function handleApiError(
     return;
   }
 
+  // Handle generic HttpError
+  if (error instanceof HttpError) {
+    res.status(error.status || 500).json({
+      error: 'HTTP error',
+      message: error.message,
+      details: error.details
+    });
+    return;
+  }
+
+  // Handle other errors
   const errorMessage = error instanceof Error ? error.message : 'Unknown error';
   const contextMsg = context ? ` ${context}` : '';
   log(`Error${contextMsg}: ${errorMessage}`, ERR);

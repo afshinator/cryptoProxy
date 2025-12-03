@@ -34,6 +34,7 @@ import {
 } from '../utils/vwatrCalculator.js';
 import { log, ERR, LOG, WARN } from '../utils/log.js';
 import { fetchFromCoinGecko, handleApiError } from '../utils/coingeckoClient.js';
+import { fetchJson } from '../utils/httpClient.js';
 import { calculateMarketVolatility } from '../features/PriceChangeVelocity/index.js';
 import { TOP_COINS_COUNT } from '../features/PriceChangeVelocity/constants.js';
 import type { CoinGeckoMarketData } from '../features/PriceChangeVelocity/types.js';
@@ -268,8 +269,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.status(404).json({ error: `Manifest file with prefix '${manifestPrefix}' not found in blob storage.` });
       }
 
-      const manifestResponse = await fetch(manifestBlob.url);
-      const manifest = await manifestResponse.json() as BagManifest;
+      const manifest = await fetchJson<BagManifest>(manifestBlob.url, {
+        context: 'Vercel Blob',
+      });
 
       const targetSymbols = manifest[bagName as keyof BagManifest];
       if (!targetSymbols || targetSymbols.length === 0) {
@@ -295,8 +297,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             return null;
           }
 
-          const historyResponse = await fetch(historyBlob.url);
-          const history = await historyResponse.json() as HistoricalOHLCVDataPoint[];
+          const history = await fetchJson<HistoricalOHLCVDataPoint[]>(historyBlob.url, {
+            context: 'Vercel Blob',
+          });
 
           // 6. Pre-calculate TR/TRV data and determine the actual candle interval
           // trData will have (history.length - 1) entries (candles)
