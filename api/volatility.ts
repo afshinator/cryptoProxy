@@ -3,20 +3,26 @@
  * Unified Volatility API Endpoint
  *
  * This Vercel Serverless function serves as the central endpoint for calculating
- * various volatility metrics (like VWATR) based on historical data stored in Vercel Blob.
+ * various volatility metrics (like VWATR and Price Change Velocity) based on historical
+ * data stored in Vercel Blob or real-time data from CoinGecko.
  *
  * IMPORTANT: Maximum period is 30 days. Historical data is fetched with daily granularity
  * (30 days of daily OHLCV data). Periods > 30 days will be rejected.
  *
  * Query Parameters:
- * - type (string, optional): The type of volatility metric to calculate. Default: 'vwatr'.
- * - bag (string, optional): Specifies the set of coins to process. Default: 'top20_bag'.
- * - periods (string, optional, relevant only for type=vwatr): Comma-separated list of lookback days.
+ * - type (string, optional): The type of volatility metric to calculate. 
+ *   Options: 'vwatr' (default) or 'current_velocity'.
+ * - bag (string, optional, for type=vwatr): Specifies the set of coins to process. Default: 'top20_bag'.
+ * - periods (string, optional, for type=vwatr): Comma-separated list of lookback days.
  *   Maximum: 30 days. Example: '7,14,30'. Default: [7, 14, 30].
+ * - per_page (number, optional, for type=current_velocity): Number of top coins to analyze.
+ *   Default: 50. Maximum: 250.
  *
  * Output:
- * - JSON response containing the calculated metrics (daily VWATR, ATR%) for each coin
- * in the specified bag, broken down by the requested lookback periods.
+ * - For type=vwatr: JSON response containing the calculated metrics (daily VWATR, ATR%) 
+ *   for each coin in the specified bag, broken down by the requested lookback periods.
+ * - For type=current_velocity: JSON response with market-wide price change velocity metrics
+ *   including 1h and 24h volatility levels, top mover information, and market cap coverage.
  */
 
 import type { VercelRequest, VercelResponse } from '@vercel/node';
@@ -27,6 +33,10 @@ import {
   TRData // <-- Imported for type checking from utility
 } from '../utils/vwatrCalculator.js';
 import { log, ERR, LOG, WARN } from '../utils/log.js';
+import { fetchFromCoinGecko, handleApiError } from '../utils/coingeckoClient.js';
+import { calculateMarketVolatility } from '../features/PriceChangeVelocity/index.js';
+import { TOP_COINS_COUNT } from '../features/PriceChangeVelocity/constants.js';
+import type { CoinGeckoMarketData } from '../features/PriceChangeVelocity/types.js';
 
 // Define the local interface for the blob object returned by Vercel's `list` function
 interface VercelBlob {
@@ -55,7 +65,8 @@ interface BagManifest {
 const DEFAULT_BAG = 'top20_bag';
 // Define supported volatility types
 const VOLATILITY_TYPE_VWATR = 'vwatr';
-const SUPPORTED_TYPES = [VOLATILITY_TYPE_VWATR];
+const VOLATILITY_TYPE_CURRENT_VELOCITY = 'current_velocity';
+const SUPPORTED_TYPES = [VOLATILITY_TYPE_VWATR, VOLATILITY_TYPE_CURRENT_VELOCITY];
 // Default specific periods if none are passed in the query
 // Maximum period: 30 days (matches available historical data)
 const DEFAULT_VWATR_PERIODS = [7, 14, 30];
@@ -189,6 +200,63 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // 2. Determine which coin bag to calculate
     const bagName = (req.query.bag as string) || DEFAULT_BAG;
+
+    // --- Current Velocity (Price Change Velocity) Calculation Logic ---
+    if (volatilityType === VOLATILITY_TYPE_CURRENT_VELOCITY) {
+      // Parse per_page query param (defaults to TOP_COINS_COUNT)
+      const perPage = req.query.per_page 
+        ? parseInt(String(req.query.per_page), 10) 
+        : TOP_COINS_COUNT;
+      
+      // Validate per_page
+      if (isNaN(perPage) || perPage <= 0 || perPage > 250) {
+        return res.status(400).json({
+          error: 'Invalid per_page parameter. Must be a positive number between 1 and 250.'
+        });
+      }
+
+      try {
+        // Build query parameters for CoinGecko markets endpoint
+        const params = new URLSearchParams();
+        params.append('vs_currency', 'usd');
+        params.append('order', 'market_cap_desc');
+        params.append('per_page', String(perPage));
+        params.append('page', '1');
+        params.append('price_change_percentage', '1h,24h'); // Required for price change velocity calculation
+
+        // Fetch market data from CoinGecko
+        log(`Fetching top ${perPage} coins from CoinGecko for price change velocity calculation...`, LOG);
+        const marketData = await fetchFromCoinGecko<CoinGeckoMarketData[]>('/coins/markets', params);
+
+        if (!marketData || marketData.length === 0) {
+          return res.status(404).json({ error: 'No market data returned from CoinGecko API' });
+        }
+
+        log(`Received ${marketData.length} coins from CoinGecko. Calculating market volatility...`, LOG);
+
+        // Calculate market volatility
+        const analysis = calculateMarketVolatility(marketData);
+
+        // Transform to simplified response format
+        const response = {
+          volatility1h: analysis.volatility1h,
+          volatility24h: analysis.volatility24h,
+          level1h: analysis.level1h,
+          level24h: analysis.level24h,
+          topMoverPercentage: analysis.topMover1h?.changePercentage ?? null,
+          topMoverCoin: analysis.topMover1h?.symbol ?? null,
+          marketCapCoverage: analysis.marketCapCoverage,
+        };
+
+        log(`Price change velocity calculated: 1h=${response.volatility1h}% (${response.level1h}), 24h=${response.volatility24h}% (${response.level24h})`, LOG);
+
+        return res.status(200).json(response);
+
+      } catch (error) {
+        // Use the existing error handler from coingeckoClient
+        return handleApiError(error, res, 'price change velocity data');
+      }
+    }
 
     // --- VWATR Calculation Logic ---
     if (volatilityType === VOLATILITY_TYPE_VWATR) {

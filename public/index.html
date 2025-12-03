@@ -223,15 +223,22 @@
           <span class="path">/api/volatility</span>
         </div>
         <div class="description">
-          Calculates volatility metrics (VWATR - Volume-Weighted Average True Range) for cryptocurrency bags based on historical OHLCV data stored in Vercel Blob. Returns VWATR and ATR% for multiple lookback periods.
+          Calculates volatility metrics for cryptocurrencies. Supports two types: <strong>VWATR</strong> (Volume-Weighted Average True Range) based on historical OHLCV data, and <strong>Price Change Velocity</strong> based on real-time market data.
         </div>
         <div class="details">
           <h4>Query Parameters</h4>
-          <code>type</code> (default: vwatr), <code>bag</code> (default: top20_bag, options: top20_bag, superstar_bag, all_coins), <code>periods</code> (default: 7,14,30, comma-separated list of days, <strong>max: 30 days</strong>)
-          <h4 style="margin-top: 0.75rem;">Response</h4>
+          <code>type</code> (default: vwatr, options: <code>vwatr</code>, <code>current_velocity</code>)<br>
+          <strong>For type=vwatr:</strong><br>
+          <code>bag</code> (default: top20_bag, options: top20_bag, superstar_bag, all_coins), <code>periods</code> (default: 7,14,30, comma-separated list of days, <strong>max: 30 days</strong>)<br>
+          <strong>For type=current_velocity:</strong><br>
+          <code>per_page</code> (default: 50, max: 250) - Number of top coins to analyze
+          <h4 style="margin-top: 0.75rem;">Response (type=vwatr)</h4>
           <code>{"type": "vwatr", "bag": "top20_bag", "periods": [7,14,30], "maxPeriod": 30, "timestamp": 1234567890, "data": [{"symbol": "btc", "results": [{"period": 7, "vwatr": 0.0234, "atrp": 2.34}, ...]}, ...]}</code>
+          <h4 style="margin-top: 0.75rem;">Response (type=current_velocity)</h4>
+          <code>{"volatility1h": 6.2, "volatility24h": 4.1, "level1h": "HIGH", "level24h": "NORMAL", "topMoverPercentage": 12.5, "topMoverCoin": "ADA", "marketCapCoverage": 0.87}</code>
         </div>
-        <a href="/api/volatility?bag=top20_bag&periods=7,14,30" class="test-link" target="_blank">Test Endpoint →</a>
+        <a href="/api/volatility?bag=top20_bag&periods=7,14,30" class="test-link" target="_blank">Test VWATR →</a>
+        <a href="/api/volatility?type=current_velocity" class="test-link" target="_blank" style="margin-left: 0.5rem;">Test Price Change Velocity →</a>
       </div>
 
       <div class="endpoint">
