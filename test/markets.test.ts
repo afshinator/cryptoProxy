@@ -5,7 +5,8 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 vi.mock('../utils/log.js', () => ({
   log: vi.fn(),
   ERR: 1,
-  LOG: 5
+  LOG: 5,
+  INFO: 7
 }));
 
 // Mock the coingeckoClient
