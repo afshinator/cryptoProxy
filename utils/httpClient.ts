@@ -31,8 +31,8 @@ export interface HttpRequestOptions {
   headers?: Record<string, string>;
   /** Request method (defaults to GET) */
   method?: string;
-  /** Request body */
-  body?: BodyInit;
+  /** Request body (string, Blob, ArrayBuffer, FormData, URLSearchParams, etc.) */
+  body?: string | Blob | ArrayBuffer | FormData | URLSearchParams | Uint8Array;
   /** Context for logging (e.g., 'CoinGecko API', 'Vercel Blob') */
   context?: string;
 }
@@ -55,7 +55,7 @@ export async function fetchJson<T = any>(
     return data as T;
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    log(`Failed to parse JSON response from ${url}: ${errorMessage}`, ERR);
+    log(`🌐 Failed to parse JSON response from ${url}: ${errorMessage}`, ERR);
     throw new HttpError(
       response.status,
       `Failed to parse JSON response: ${errorMessage}`,
@@ -82,7 +82,7 @@ export async function fetchText(
     return await response.text();
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    log(`Failed to read text response from ${url}: ${errorMessage}`, ERR);
+    log(`🌐 Failed to read text response from ${url}: ${errorMessage}`, ERR);
     throw new HttpError(
       response.status,
       `Failed to read text response: ${errorMessage}`,
@@ -109,7 +109,7 @@ export async function fetchBlob(
     return await response.blob();
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    log(`Failed to read blob response from ${url}: ${errorMessage}`, ERR);
+    log(`🌐 Failed to read blob response from ${url}: ${errorMessage}`, ERR);
     throw new HttpError(
       response.status,
       `Failed to read blob response: ${errorMessage}`,
@@ -135,14 +135,14 @@ async function fetchHttp(
   const method = options.method || 'GET';
   
   // Build headers
-  const headers: HeadersInit = {
+  const headers: Record<string, string> = {
     'Accept': 'application/json',
     ...options.headers,
   };
 
   // Log request (mask sensitive data in URL)
   const urlForLogging = maskSensitiveUrl(url);
-  log(`[${context}] ${method} ${urlForLogging}`, LOG);
+  log(`🌐 [${context}] ${method} ${urlForLogging}`, LOG);
 
   try {
     const response = await fetch(url, {
@@ -152,7 +152,7 @@ async function fetchHttp(
     });
 
     // Log response status
-    log(`[${context}] Response: ${response.status} ${response.statusText}`, LOG);
+    log(`🌐 [${context}] Response: ${response.status} ${response.statusText}`, LOG);
 
     // Check for rate limiting
     checkRateLimits(response, context);
@@ -161,7 +161,7 @@ async function fetchHttp(
     if (!response.ok) {
       const errorText = await response.text().catch(() => 'Unable to read error response');
       const errorPreview = errorText.substring(0, 200);
-      log(`[${context}] ❌ Error Response: ${errorPreview}`, ERR);
+      log(`🌐 [${context}] ❌ Error Response: ${errorPreview}`, ERR);
       
       throw new HttpError(
         response.status,
@@ -180,7 +180,7 @@ async function fetchHttp(
 
     // Handle network errors and other exceptions
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    log(`[${context}] Network/Request Error: ${errorMessage}`, ERR);
+    log(`🌐 [${context}] Network/Request Error: ${errorMessage}`, ERR);
     throw new HttpError(
       0,
       `Failed to fetch from ${context}: ${errorMessage}`,
@@ -205,11 +205,11 @@ function checkRateLimits(response: Response, context: string): void {
 
   if (rateLimitRemaining !== null) {
     const remaining = parseInt(rateLimitRemaining, 10);
-    log(`[${context}] Rate limit remaining: ${remaining}`, LOG);
+    log(`🌐 [${context}] Rate limit remaining: ${remaining}`, LOG);
     
     // Warn if rate limit is getting low
     if (remaining < 10) {
-      log(`[${context}] ⚠️ Rate limit is low (${remaining} remaining)`, WARN);
+      log(`🌐 [${context}] ⚠️ Rate limit is low (${remaining} remaining)`, WARN);
     }
   }
 
@@ -219,12 +219,12 @@ function checkRateLimits(response: Response, context: string): void {
     const resetDate = resetTime < 1e12 
       ? new Date(resetTime * 1000) 
       : new Date(resetTime);
-    log(`[${context}] Rate limit resets at: ${resetDate.toISOString()}`, LOG);
+    log(`🌐 [${context}] Rate limit resets at: ${resetDate.toISOString()}`, LOG);
   }
 
   // Check for rate limit status codes
   if (response.status === 429) {
-    log(`[${context}] ⚠️ Rate limit exceeded (429)`, WARN);
+    log(`🌐 [${context}] ⚠️ Rate limit exceeded (429)`, WARN);
   }
 }
 
