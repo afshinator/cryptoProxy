@@ -32,11 +32,20 @@ import {
   precalculateTRData,
   TRData // <-- Imported for type checking from utility
 } from '../utils/vwatrCalculator.js';
-import { log, ERR, LOG, WARN } from '../utils/log.js';
+import { log, ERR, LOG, WARN, INFO } from '../utils/log.js';
 import { fetchFromCoinGecko, handleApiError } from '../utils/coingeckoClient.js';
 import { calculateMarketVolatility } from '../features/PriceChangeVelocity/index.js';
 import { TOP_COINS_COUNT } from '../features/PriceChangeVelocity/constants.js';
 import type { CoinGeckoMarketData } from '../features/PriceChangeVelocity/types.js';
+
+// Startup log - runs once per cold start
+let startupLogged = false;
+if (!startupLogged) {
+  const now = new Date();
+  const timeStr = now.toISOString();
+  log(`🚀 Crypto Proxy API initialized! 🌟 Hello from the serverless function! ⚡ Time: ${timeStr} 🕐`, INFO);
+  startupLogged = true;
+}
 
 // Define the local interface for the blob object returned by Vercel's `list` function
 interface VercelBlob {
