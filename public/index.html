@@ -244,23 +244,6 @@
       <div class="endpoint">
         <div class="endpoint-header">
           <span class="method get">GET</span>
-          <span class="path">/api/dominance</span>
-        </div>
-        <div class="description">
-          Calculates and returns current market dominance percentages for Bitcoin (BTC), Ethereum (ETH), stablecoins, and all other cryptocurrencies. Uses real-time data from CoinGecko to provide accurate market cap and dominance metrics.
-        </div>
-        <div class="details">
-          <h4>Query Parameters</h4>
-          None (all data is fetched from CoinGecko)
-          <h4 style="margin-top: 0.75rem;">Response</h4>
-          <code>{"totalMarketCap": 2500000000000, "btc": {"marketCap": 1000000000000, "dominance": 40.0}, "eth": {"marketCap": 500000000000, "dominance": 20.0}, "stablecoins": {"marketCap": 200000000000, "dominance": 8.0}, "others": {"marketCap": 800000000000, "dominance": 32.0}, "timestamp": 1234567890000}</code>
-        </div>
-        <a href="/api/dominance" class="test-link" target="_blank">Test Endpoint →</a>
-      </div>
-
-      <div class="endpoint">
-        <div class="endpoint-header">
-          <span class="method get">GET</span>
           <span class="method post">POST</span>
           <span class="path">/api/blob-example</span>
         </div>

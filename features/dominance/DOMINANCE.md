@@ -23,18 +23,16 @@ Market dominance measures what percentage of the total cryptocurrency market cap
 | # | Endpoint | Parameters | Purpose | Data Retrieved | API Calls |
 |---|----------|------------|---------|----------------|-----------|
 | 1 | `/global` | (none) | Get total market cap & BTC dominance % | `data.total_market_cap`, `data.market_cap_percentage.btc` | 1 |
-| 2 | `/coins/markets` | `ids=bitcoin` | Get BTC market cap | `market_cap` for Bitcoin | 1 |
-| 3 | `/coins/markets` | `ids=ethereum` | Get ETH market cap | `market_cap` for Ethereum | 1 |
-| 4 | `/coins/markets` | `ids=tether,usd-coin,dai,ethena-usde,paypal-usd,first-digital-usd,true-usd,gemini-dollar,euro-coin,usdd,liquity-usd,paxos-standard` | Get all stablecoin market caps | `market_cap` for each stablecoin (12 coins) | 1 |
-| 5 | (calculation) | N/A | Calculate "Others" | `Total - BTC - ETH - Stablecoins` | 0 |
+| 2 | `/coins/markets` | `ids=bitcoin,ethereum,tether,usd-coin,dai,ethena-usde,paypal-usd,first-digital-usd,true-usd,gemini-dollar,euro-coin,usdd,liquity-usd,paxos-standard` | Get BTC, ETH, and all stablecoin market caps | `market_cap` for Bitcoin, Ethereum, and 12 stablecoins (14 coins total) | 1 |
+| 3 | (calculation) | N/A | Calculate "Others" | `Total - BTC - ETH - Stablecoins` | 0 |
 
-**Total API Calls: 4**
+**Total API Calls: 2**
 
 ### Rate Limit Considerations
 
-- **Free tier**: 30 calls/minute — 4 calls is well within limits
+- **Free tier**: 30 calls/minute — 2 calls is well within limits
 - **With API key**: Higher limits — no concerns
-- **Stablecoins call**: Most expensive (1 call for 11 coins), but still efficient
+- **Combined call**: Single call fetches BTC, ETH, and all 12 stablecoins (14 coins total) for maximum efficiency
 
 ## Data Requirements
 
