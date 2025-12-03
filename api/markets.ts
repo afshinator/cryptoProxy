@@ -5,6 +5,9 @@
  */
 import { fetchFromCoinGecko, handleApiError } from '../utils/coingeckoClient.js';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
+// Suppress DEP0169 deprecation warning from dependencies
+import { suppressDeprecationWarning } from '../utils/suppressDeprecationWarning.js';
+suppressDeprecationWarning();
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   // Only allow GET requests

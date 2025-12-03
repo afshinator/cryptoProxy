@@ -151,27 +151,9 @@ function parsePeriods(queryPeriods: string | string[] | undefined): { periods: n
   };
 }
 
-// Suppress DEP0169 deprecation warning from dependencies (url.parse() usage in @vercel/blob or its deps)
-// This warning is from a transitive dependency and cannot be fixed in our code.
-// We intercept stderr to filter out this specific deprecation warning message.
-let stderrIntercepted = false;
-if (!stderrIntercepted && process.stderr && typeof process.stderr.write === 'function') {
-  const originalStderrWrite = process.stderr.write.bind(process.stderr);
-  process.stderr.write = function(chunk: any, encoding?: any, callback?: any): boolean {
-    const message = typeof chunk === 'string' ? chunk : chunk.toString();
-    // Filter out DEP0169 deprecation warnings
-    if (message.includes('DEP0169') || message.includes('url.parse()')) {
-      // Suppress this specific deprecation warning
-      if (typeof callback === 'function') {
-        callback();
-      }
-      return true;
-    }
-    // Pass through all other output
-    return originalStderrWrite(chunk, encoding, callback);
-  };
-  stderrIntercepted = true;
-}
+// Suppress DEP0169 deprecation warning from dependencies
+import { suppressDeprecationWarning } from '../utils/suppressDeprecationWarning.js';
+suppressDeprecationWarning();
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   // Allow cross-origin requests for testing
