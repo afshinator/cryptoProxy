@@ -100,3 +100,31 @@ export interface Stablecoin {
     },
     // Note: BUSD (Binance USD) is generally excluded now as its issuance has largely ceased.
   ];
+
+/**
+ * CoinGecko API IDs for fiat-pegged stablecoins used in dominance calculations
+ * 
+ * Note: Gold-backed tokens (tether-gold, pax-gold) are excluded
+ * as they track gold prices rather than fiat currencies.
+ * 
+ * This list includes stablecoins that should be included in market dominance calculations.
+ */
+export const STABLECOIN_IDS = [
+  'tether',
+  'usd-coin',
+  'dai',
+  'ethena-usde',
+  'paypal-usd',
+  'first-digital-usd',
+  'true-usd',
+  'gemini-dollar',
+  'euro-coin',
+  'usdd',
+  'liquity-usd',
+  'paxos-standard',
+] as const;
+
+/**
+ * Number of stablecoins in the dominance calculation
+ */
+export const STABLECOIN_COUNT = STABLECOIN_IDS.length;

@@ -27,3 +27,23 @@ npm install
 
 `vercel deploy`
 
+---
+
+### What the app currently fetches:
+
+Individual coin market caps via /api/markets:
+
+    - Calls CoinGecko's /coins/markets endpoint
+
+    - Returns market cap for each coin in the response
+
+    - BTC and ETH are included if they're in the top N (usually are)
+
+    - You can query specific coins using ids=bitcoin,ethereum
+
+
+Calculated "total market cap" (not global):
+
+    - The volatility calculator sums market caps of the coins it fetches
+
+    - This is not the global total market cap
