@@ -1,6 +1,6 @@
 # Feature: Price Change Velocity
 
-Calculate market-wide volatility using market-cap weighted average of price changes across top cryptocurrency assets.
+Calculate **market-wide volatility** using market-cap weighted average of price changes across top cryptocurrency assets.
 
 ## Introduction to Price Change Velocity
 
@@ -60,19 +60,19 @@ Based on volatility levels:
 ### Endpoint
 
 ```
-GET /api/volatility?type=current_velocity
+GET /api/volatility?type=current
 ```
 
 ### Query Parameters
 
-- **`type`** (required): Must be set to `current_velocity`
+- **`type`** (required): Must be set to `current`
 - **`per_page`** (optional): Number of top coins to analyze (default: 50, max: 250)
 
 ### Example Request
 
 ```bash
-GET /api/volatility?type=current_velocity
-GET /api/volatility?type=current_velocity&per_page=100
+GET /api/volatility?type=current
+GET /api/volatility?type=current&per_page=100
 ```
 
 ### Response Format

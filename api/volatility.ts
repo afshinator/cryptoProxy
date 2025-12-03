@@ -11,17 +11,17 @@
  *
  * Query Parameters:
  * - type (string, optional): The type of volatility metric to calculate. 
- *   Options: 'vwatr' (default) or 'current_velocity'.
+ *   Options: 'vwatr' (default) or 'current'.
  * - bag (string, optional, for type=vwatr): Specifies the set of coins to process. Default: 'top20_bag'.
  * - periods (string, optional, for type=vwatr): Comma-separated list of lookback days.
  *   Maximum: 30 days. Example: '7,14,30'. Default: [7, 14, 30].
- * - per_page (number, optional, for type=current_velocity): Number of top coins to analyze.
+ * - per_page (number, optional, for type=current): Number of top coins to analyze.
  *   Default: 50. Maximum: 250.
  *
  * Output:
  * - For type=vwatr: JSON response containing the calculated metrics (daily VWATR, ATR%) 
  *   for each coin in the specified bag, broken down by the requested lookback periods.
- * - For type=current_velocity: JSON response with market-wide price change velocity metrics
+ * - For type=current: JSON response with market-wide price change velocity metrics
  *   including 1h and 24h volatility levels, top mover information, and market cap coverage.
  */
 
@@ -65,8 +65,8 @@ interface BagManifest {
 const DEFAULT_BAG = 'top20_bag';
 // Define supported volatility types
 const VOLATILITY_TYPE_VWATR = 'vwatr';
-const VOLATILITY_TYPE_CURRENT_VELOCITY = 'current_velocity';
-const SUPPORTED_TYPES = [VOLATILITY_TYPE_VWATR, VOLATILITY_TYPE_CURRENT_VELOCITY];
+const VOLATILITY_TYPE_CURRENT = 'current';
+const SUPPORTED_TYPES = [VOLATILITY_TYPE_VWATR, VOLATILITY_TYPE_CURRENT];
 // Default specific periods if none are passed in the query
 // Maximum period: 30 days (matches available historical data)
 const DEFAULT_VWATR_PERIODS = [7, 14, 30];
@@ -184,7 +184,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const bagName = (req.query.bag as string) || DEFAULT_BAG;
 
     // --- Current Velocity (Price Change Velocity) Calculation Logic ---
-    if (volatilityType === VOLATILITY_TYPE_CURRENT_VELOCITY) {
+    if (volatilityType === VOLATILITY_TYPE_CURRENT) {
       // Parse per_page query param (defaults to TOP_COINS_COUNT)
       const perPage = req.query.per_page 
         ? parseInt(String(req.query.per_page), 10) 
