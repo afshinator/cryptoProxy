@@ -1,6 +1,7 @@
 // Filename: utils/coingeckoConfig.ts
 
 import { log, WARN, LOG } from './log.js';
+import { COINGECKO_BASE_URL } from '../constants/api.js';
 import dotenv from 'dotenv';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
@@ -36,7 +37,7 @@ if (!COINGECKO_API_KEY) {
  * @returns The complete, signed URL.
  */
 export function buildCoingeckoUrl(endpointPath: string, params: URLSearchParams): string {
-  const baseUrl = "https://api.coingecko.com/api/v3";
+  const baseUrl = COINGECKO_BASE_URL;
 
   // Conditionally append the API key to the parameters
   if (COINGECKO_API_KEY) {

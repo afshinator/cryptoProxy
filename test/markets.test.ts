@@ -51,7 +51,9 @@ describe('Markets Endpoint Tests', () => {
     // Mock response object
     mockRes = {
       status: vi.fn().mockReturnThis(),
-      json: vi.fn().mockReturnThis()
+      json: vi.fn().mockReturnThis(),
+      setHeader: vi.fn().mockReturnThis(),
+      end: vi.fn().mockReturnThis()
     };
   });
 

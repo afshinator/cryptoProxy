@@ -1,4 +1,4 @@
-// utils/log.ts
+// log.ts or utils.ts
 
 // Any log with priority > this number will be suppressed.
 const LOG_THRESHOLD: number = 7;
@@ -12,6 +12,7 @@ export const LOG = 5;
 export const LOG2 = 6;
 export const INFO = 7;
 export const INFO2 = 8;
+export const TMI = 9;
 
 /**
  * Logs a message to the console based on priority and a global threshold.
@@ -44,6 +45,6 @@ export function log(message: string, priority: number = LOG): void {
   }
   // Handles logs outside the 1-8 range, but below the threshold (e.g., priority 0)
   else {
-    console.warn(`❗ ${message}`);
+    // console.warn(`❗ ${message}`);
   }
 }
