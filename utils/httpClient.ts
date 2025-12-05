@@ -6,7 +6,7 @@
  * All HTTP requests in the application should go through this module.
  */
 
-import { log, ERR, LOG, WARN } from './log.js';
+import { log, ERR, LOG, WARN, TMI } from './log.js';
 
 /**
  * Generic HTTP error class for all HTTP-related errors
@@ -142,7 +142,7 @@ async function fetchHttp(
 
   // Log request (mask sensitive data in URL)
   const urlForLogging = maskSensitiveUrl(url);
-  log(`🌐 [${context}] ${method} ${urlForLogging}`, LOG);
+  log(`🌐 [${context}] ${method} ${urlForLogging}`, TMI);
 
   try {
     const response = await fetch(url, {
@@ -152,7 +152,7 @@ async function fetchHttp(
     });
 
     // Log response status
-    log(`🌐 [${context}] Response: ${response.status} ${response.statusText}`, LOG);
+    log(`🌐 [${context}] Response: ${response.status} ${response.statusText}`, TMI);
 
     // Check for rate limiting
     checkRateLimits(response, context);
