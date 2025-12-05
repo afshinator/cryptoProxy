@@ -57,7 +57,7 @@ export async function fetchBitcoinMarketCap(): Promise<number> {
   }
   
   const btcMarketCap = data[0].market_cap;
-  log(`💪 Bitcoin market cap: $${btcMarketCap.toLocaleString()}`, LOG);
+  log(`💪 Bitcoin market cap: $${btcMarketCap.toLocaleString()}`, TMI);
   
   return btcMarketCap;
 }
@@ -81,7 +81,7 @@ export async function fetchEthereumMarketCap(): Promise<number> {
   }
   
   const ethMarketCap = data[0].market_cap;
-  log(`💪 Ethereum market cap: $${ethMarketCap.toLocaleString()}`, LOG);
+  log(`💪 Ethereum market cap: $${ethMarketCap.toLocaleString()}`, TMI);
   
   return ethMarketCap;
 }
@@ -129,7 +129,7 @@ export async function fetchStablecoinsMarketCap(): Promise<number> {
     log(`💪 ⚠️ ${missingCoins.length} stablecoin(s) not found or have zero market cap: ${missingCoins.join(', ')}`, WARN);
   }
   
-  log(`💪 Stablecoins market cap: $${totalStablecoinMarketCap.toLocaleString()} (${foundCount}/${STABLECOIN_COUNT} coins found)`, LOG);
+  log(`💪 Stablecoins market cap: $${totalStablecoinMarketCap.toLocaleString()} (${foundCount}/${STABLECOIN_COUNT} coins found)`, TMI);
   
   return totalStablecoinMarketCap;
 }
@@ -140,7 +140,7 @@ export async function fetchStablecoinsMarketCap(): Promise<number> {
  * @returns MarketCapData object with all required market caps
  */
 export async function fetchAllMarketCapData(): Promise<MarketCapData> {
-  log('💪 Starting market cap data fetch...', LOG);
+  log('💪 Starting market cap data fetch...', TMI);
   
   // Fetch all data in parallel for better performance
   const [total, btc, eth, stablecoins] = await Promise.all([

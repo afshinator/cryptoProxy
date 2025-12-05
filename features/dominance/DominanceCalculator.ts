@@ -6,7 +6,7 @@
  * on the provided market cap data.
  */
 
-import { log, ERR, LOG } from '../../utils/log.js';
+import { log, ERR, LOG, TMI } from '../../utils/log.js';
 import type {
   MarketCapData,
   DominanceAnalysis,
@@ -114,7 +114,7 @@ export function calculateDominance(
   };
   
   log('💪 Market dominance calculation complete', LOG);
-  log(`💪 BTC: ${result.btc.dominance}%, ETH: ${result.eth.dominance}%, Stablecoins: ${result.stablecoins.dominance}%, Others: ${result.others.dominance}%`, LOG);
+  log(`💪 BTC: ${result.btc.dominance}%, ETH: ${result.eth.dominance}%, Stablecoins: ${result.stablecoins.dominance}%, Others: ${result.others.dominance}%`, TMI);
   
   return result;
 }
