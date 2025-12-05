@@ -25,6 +25,10 @@
  *   including 1h and 24h volatility levels, top mover information, and market cap coverage.
  */
 
+// Suppress DEP0169 deprecation warning from dependencies (must be imported first)
+import { suppressDeprecationWarning } from '../utils/suppressDeprecationWarning.js';
+suppressDeprecationWarning();
+
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { list } from '@vercel/blob';
 import {
@@ -152,9 +156,6 @@ function parsePeriods(queryPeriods: string | string[] | undefined): { periods: n
   };
 }
 
-// Suppress DEP0169 deprecation warning from dependencies
-import { suppressDeprecationWarning } from '../utils/suppressDeprecationWarning.js';
-suppressDeprecationWarning();
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   // Allow cross-origin requests for testing

@@ -6,7 +6,7 @@
  * easy switching to alternative data providers in the future.
  */
 
-import { log, ERR, LOG, WARN } from '../../utils/log.js';
+import { log, ERR, LOG, WARN, TMI } from '../../utils/log.js';
 import { fetchFromCoinGecko } from '../../utils/coingeckoClient.js';
 import type {
   CoinGeckoGlobalData,
@@ -27,7 +27,7 @@ import {
  * @returns Total market cap in USD
  */
 export async function fetchTotalMarketCap(): Promise<number> {
-  log('💪 Fetching total market cap from /global endpoint...', LOG);
+  log('💪 Fetching total market cap from /global endpoint...', TMI);
   
   const params = new URLSearchParams();
   const data = await fetchFromCoinGecko<CoinGeckoGlobalData>('/global', params);
@@ -43,7 +43,7 @@ export async function fetchTotalMarketCap(): Promise<number> {
  * @returns Bitcoin market cap in USD
  */
 export async function fetchBitcoinMarketCap(): Promise<number> {
-  log('💪 Fetching Bitcoin market cap...', LOG);
+  log('💪 Fetching Bitcoin market cap...', TMI);
   
   const params = new URLSearchParams();
   params.append('vs_currency', 'usd');
@@ -67,7 +67,7 @@ export async function fetchBitcoinMarketCap(): Promise<number> {
  * @returns Ethereum market cap in USD
  */
 export async function fetchEthereumMarketCap(): Promise<number> {
-  log('💪 Fetching Ethereum market cap...', LOG);
+  log('💪 Fetching Ethereum market cap...', TMI);
   
   const params = new URLSearchParams();
   params.append('vs_currency', 'usd');
@@ -91,7 +91,7 @@ export async function fetchEthereumMarketCap(): Promise<number> {
  * @returns Sum of all stablecoin market caps in USD
  */
 export async function fetchStablecoinsMarketCap(): Promise<number> {
-  log(`💪 Fetching stablecoin market caps for ${STABLECOIN_COUNT} coins...`, LOG);
+  log(`💪 Fetching stablecoin market caps for ${STABLECOIN_COUNT} coins...`, TMI);
   
   const params = new URLSearchParams();
   params.append('vs_currency', 'usd');

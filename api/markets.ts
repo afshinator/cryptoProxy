@@ -3,11 +3,12 @@
  * Markets endpoint that mirrors CoinGecko's /coins/markets endpoint
  * Supports query parameters: vs_currency, order, per_page, page, sparkline, price_change_percentage
  */
-import { fetchFromCoinGecko, handleApiError } from '../utils/coingeckoClient.js';
-import type { VercelRequest, VercelResponse } from '@vercel/node';
-// Suppress DEP0169 deprecation warning from dependencies
+// Suppress DEP0169 deprecation warning from dependencies (must be imported first)
 import { suppressDeprecationWarning } from '../utils/suppressDeprecationWarning.js';
 suppressDeprecationWarning();
+
+import { fetchFromCoinGecko, handleApiError } from '../utils/coingeckoClient.js';
+import type { VercelRequest, VercelResponse } from '@vercel/node';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   // Allow cross-origin requests for testing

@@ -1,6 +1,6 @@
 // Filename: utils/coingeckoClient.ts
 
-import { log, ERR, LOG } from './log.js';
+import { log, ERR, LOG, TMI } from './log.js';
 import { buildCoingeckoUrl } from './coingeckoConfig.js';
 import { fetchJson, HttpError } from './httpClient.js';
 
@@ -36,7 +36,7 @@ export async function fetchFromCoinGecko<T = any>(
     
     // Log API key status
     const hasApiKey = url.includes('x_cg_demo_api_key=');
-    log(`  API key included: ${hasApiKey ? '✅ YES' : '❌ NO'}`, LOG);
+    log(`  API key included: ${hasApiKey ? '✅ YES' : '❌ NO'}`, TMI);
 
     // Use generic HTTP client for the actual fetch
     const data = await fetchJson<T>(url, {
