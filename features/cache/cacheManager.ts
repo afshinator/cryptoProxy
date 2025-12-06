@@ -40,12 +40,14 @@ export interface CacheResult<T = any> {
  * @param featureName - One of the keys in featuresCacheConfig
  * @param volatilityLevel - Optional volatility level (defaults to NORMAL)
  * @param params - Optional query parameters for features that support them
+ * @param forceSource - Optional: 'api' to force fresh pull and update cache, 'cache' to force serve from cache only
  * @returns Cache result with data, cached flag, and timestamp
  */
 export async function updateFeatureCache(
   featureName: string,
   volatilityLevel: VolatilityLevel = 'NORMAL',
-  params: Record<string, any> = {}
+  params: Record<string, any> = {},
+  forceSource?: 'api' | 'cache'
 ): Promise<CacheResult> {
   // Get feature config
   const config = featuresCacheConfig[featureName];
@@ -53,9 +55,63 @@ export async function updateFeatureCache(
     throw new Error(`💿 Feature '${featureName}' not found in featuresCacheConfig`);
   }
 
+  // Handle forceSource parameter
+  if (forceSource === 'api') {
+    // Force fresh pull from APIs, compute value, update cache, return
+    log(`💿 🔄 Force source 'api': computing fresh data for '${featureName}'...`, LOG);
+    const cacheKey = findCacheKey(featureName, params) || featureName;
+    const now = Date.now();
+    
+    try {
+      const data = await computeFeatureData(featureName, params);
+      const cachedData: CachedData = {
+        data,
+        timestamp: now,
+      };
+      
+      await cacheStorage.set(cacheKey, JSON.stringify(cachedData));
+      log(`💿 ✅ Force API: Updated cache entry for '${cacheKey}' with fresh data`, LOG);
+      
+      return {
+        data,
+        cached: false,
+        timestamp: now,
+      };
+    } catch (error) {
+      log(`💿 ❌ Force API: Failed to compute data for '${featureName}': ${error instanceof Error ? error.message : String(error)}`, ERR);
+      throw error;
+    }
+  }
+
+  if (forceSource === 'cache') {
+    // Force serve from cache only
+    log(`💿 📦 Force source 'cache': serving from cache for '${featureName}'...`, LOG);
+    const cacheKey = findCacheKey(featureName, params) || featureName;
+    
+    try {
+      const cachedValue = await cacheStorage.get(cacheKey);
+      
+      if (!cachedValue) {
+        throw new Error(`💿 Cache entry '${cacheKey}' not found`);
+      }
+      
+      const cachedData: CachedData = JSON.parse(cachedValue);
+      log(`💿 ✅ Force Cache: Serving cached data for '${cacheKey}' (age: ${((Date.now() - cachedData.timestamp) / 1000).toFixed(1)}s)`, LOG);
+      
+      return {
+        data: cachedData.data,
+        cached: true,
+        timestamp: cachedData.timestamp,
+      };
+    } catch (error) {
+      log(`💿 ❌ Force Cache: Failed to get cached data for '${cacheKey}': ${error instanceof Error ? error.message : String(error)}`, ERR);
+      throw error;
+    }
+  }
+
   if (!config.cache) {
     // Feature is not configured for caching, compute fresh data
-    log(`💿 Feature '${featureName}' is not configured for caching, computing fresh data...`, LOG);
+    log(`💿⁉️Feature '${featureName}' is not configured for caching, computing fresh data...`, LOG);
     const data = await computeFeatureData(featureName, params);
     return {
       data,
