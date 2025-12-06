@@ -15,7 +15,25 @@ export function suppressDeprecationWarning(): void {
 
   // Intercept process.emitWarning() - this is how Node.js emits deprecation warnings
   const originalEmitWarning = process.emitWarning.bind(process);
-  process.emitWarning = function(warning: any, type?: string | Function, code?: string) {
+  // Use a type assertion to handle all overloads properly
+  (process.emitWarning as any) = function(
+    warning: string | Error,
+    a?: string | Function | NodeJS.EmitWarningOptions,
+    b?: string | Function,
+    c?: Function
+  ): typeof process {
+    // Extract code from various parameter positions
+    let code: string | undefined;
+    
+    // Handle different call signatures
+    if (typeof a === 'object' && a !== null) {
+      // Options object format: emitWarning(warning, { code: 'DEP0169' })
+      code = (a as NodeJS.EmitWarningOptions).code;
+    } else if (typeof b === 'string') {
+      // Standard format: emitWarning(warning, type, code)
+      code = b;
+    }
+    
     // Check if this is the DEP0169 deprecation warning
     if (code === 'DEP0169') {
       // Suppress this specific deprecation warning by not calling the original
@@ -29,8 +47,19 @@ export function suppressDeprecationWarning(): void {
       return process;
     }
     
-    // Pass through all other warnings
-    return originalEmitWarning(warning, type, code);
+    // Pass through all other warnings - reconstruct call based on arguments
+    if (typeof a === 'object' && a !== null) {
+      originalEmitWarning(warning, a as NodeJS.EmitWarningOptions);
+    } else if (typeof b === 'string' && c !== undefined) {
+      originalEmitWarning(warning, a as string, b, c);
+    } else if (typeof b === 'string') {
+      originalEmitWarning(warning, a as string, b);
+    } else if (a !== undefined) {
+      originalEmitWarning(warning, a as string);
+    } else {
+      originalEmitWarning(warning);
+    }
+    return process;
   };
 
   // Also intercept stderr.write as a fallback (in case warnings are written directly)
