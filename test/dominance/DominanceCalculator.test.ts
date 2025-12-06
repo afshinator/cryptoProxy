@@ -9,6 +9,7 @@ vi.mock('../../utils/log.js', () => ({
   WARN: 3,
   LOG: 5,
   INFO: 7,
+  TMI: 9,
 }));
 
 describe('DominanceCalculator', () => {
