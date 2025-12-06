@@ -8,7 +8,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   if (hasMagic) {
     // Serve the full index.html
-    const htmlPath = join(process.cwd(), 'public', 'index.html');
+    const htmlPath = join(process.cwd(), 'templates', 'index.html');
     const htmlContent = readFileSync(htmlPath, 'utf-8');
     
     res.setHeader('Content-Type', 'text/html');
