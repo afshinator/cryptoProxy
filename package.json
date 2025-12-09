@@ -7,7 +7,9 @@
   "scripts": {
     "build": "echo 'No build step required'",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "format": "prettier --write \"**/*.ts\" --ignore-path .gitignore",
+    "format:check": "prettier --check \"**/*.ts\" --ignore-path .gitignore"
   },
   "keywords": [
     "vercel",
@@ -25,6 +27,7 @@
     "@types/node": "^20.0.0",
     "@types/supertest": "^6.0.3",
     "@vercel/node": "^3.0.0",
+    "prettier": "^3.7.4",
     "supertest": "^7.1.4",
     "typescript": "^5.0.0",
     "vercel": "^48.12.0",
