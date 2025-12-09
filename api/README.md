@@ -18,9 +18,6 @@ api/
 │   ├── landing.ts        # "Coming Soon" landing page
 │   └── magic.ts          # Full index.html template handler
 ├── feature.ts            # Feature resolution endpoint
-├── markets.ts            # Markets data endpoint
-├── volatility.ts         # Volatility data endpoint
-├── dominance.ts         # Dominance data endpoint
 └── ...                   # Other API endpoints
 ```
 
@@ -142,15 +139,6 @@ Main endpoint for resolving features with caching and provider rotation.
   "effectiveTTLSeconds": 150
 }
 ```
-
-### Markets: `markets.ts`
-Endpoint for market data.
-
-### Volatility: `volatility.ts`
-Endpoint for volatility data.
-
-### Dominance: `dominance.ts`
-Endpoint for dominance data.
 
 ## 🏗️ Architecture
 
